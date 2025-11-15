@@ -110,7 +110,6 @@ class PackageScreen(Screen):
             if not packages:
                 raise Exception("Không có gói dịch vụ nào")
 
-            # Hiển thị UI
             Clock.schedule_once(lambda dt: self.display_packages(packages), 0)
 
         except requests.exceptions.Timeout:
@@ -145,7 +144,6 @@ class PackageScreen(Screen):
         )
         self.grid.add_widget(error_label)
 
-        # Hiển thị popup
         Popup(
             title="Lỗi",
             content=Label(text=message),
@@ -157,9 +155,6 @@ class PackageScreen(Screen):
         self.bg_rect.size = self.size
 
     def set_package(self, pkg):
-        """
-        Lưu thông tin gói đã chọn vào JsonStore
-        """
         try:
             store = JsonStore("user.json")
             store.put("package",
@@ -195,7 +190,6 @@ class PackageScreen(Screen):
             card.rect = RoundedRectangle(pos=card.pos, size=card.size, radius=[12])
         card.bind(pos=self.update_rect, size=self.update_rect)
 
-        # Name
         title_label = Label(
             text=f"[b]{pkg['name_package']}[/b]",
             markup=True,
