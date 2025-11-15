@@ -24,7 +24,6 @@ class PackageScreen(Screen):
     def __init__(self, **kwargs):
         super(PackageScreen, self).__init__(**kwargs)
 
-        # Nền trắng
         Window.clearcolor = (1, 1, 1, 1)
         with self.canvas.before:
             Color(1, 1, 1, 1)
@@ -33,7 +32,6 @@ class PackageScreen(Screen):
 
         main_layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
 
-        # --- TOP BAR ---
         top_bar = BoxLayout(orientation='horizontal', size_hint=(1, 0.1), spacing=10)
 
         class ImageButton(ButtonBehavior, Image):
@@ -60,7 +58,6 @@ class PackageScreen(Screen):
         top_bar.add_widget(title)
         main_layout.add_widget(top_bar)
 
-        # --- LIST GÓI DỊCH VỤ ---
         scroll = ScrollView(size_hint=(1, 0.9))
         self.grid = GridLayout(cols=1, spacing=12, padding=[10, 10, 10, 10], size_hint_y=None)
         self.grid.bind(minimum_height=self.grid.setter('height'))
@@ -72,7 +69,6 @@ class PackageScreen(Screen):
     def on_pre_enter(self):
         self.grid.clear_widgets()
 
-        # Hiển thị loading
         loading_label = Label(
             text="Đang tải dữ liệu...",
             font_size=18,
@@ -80,76 +76,56 @@ class PackageScreen(Screen):
         )
         self.grid.add_widget(loading_label)
 
-        # Load packages trong thread riêng để không block UI
         threading.Thread(target=self.load_packages, daemon=True).start()
 
     def load_packages(self):
         try:
             logging.info("Loading packages from API...")
 
-            api_endpoints = "https://backend-onlinesystem.onrender.com/api/packages"
+            url = "https://backend-onlinesystem.onrender.com/api/packages"
 
-            response = None
-            last_error = None
+            response = requests.get(
+                url,
+                timeout=15,
+                headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json'
+                }
+            )
 
-            for endpoint in api_endpoints:
-                try:
-                    logging.info(f"Trying endpoint: {endpoint}")
-                    response = requests.get(
-                        endpoint,
-                        timeout=15,
-                        headers={
-                            'User-Agent': 'Mozilla/5.0',
-                            'Accept': 'application/json'
-                        }
-                    )
+            logging.info(f"Status: {response.status_code}")
+            logging.info(f"Response content: {response.text[:500]}")
 
-                    if response.status_code == 200:
-                        logging.info(f"Success with endpoint: {endpoint}")
-                        break
-                    else:
-                        logging.warning(f"Endpoint {endpoint} returned {response.status_code}")
-                        last_error = f"Status code: {response.status_code}"
-
-                except Exception as e:
-                    logging.warning(f"Failed endpoint {endpoint}: {str(e)}")
-                    last_error = str(e)
-                    continue
-
-            if not response or response.status_code != 200:
-                raise Exception(f"Không thể kết nối API. Lỗi cuối: {last_error}")
-
-            logging.info(f"Response status: {response.status_code}")
-            logging.info(f"Response content: {response.text[:500]}")  # Log 500 ký tự đầu
+            if response.status_code != 200:
+                raise Exception(f"API trả về lỗi {response.status_code}")
 
             json_data = response.json()
             logging.info(f"JSON data: {json_data}")
 
             if "data" not in json_data:
-                raise Exception(f"Invalid response format. Response: {json_data}")
+                raise Exception(f"Response không đúng định dạng: {json_data}")
 
             packages = json_data["data"]
 
-            if not packages or len(packages) == 0:
-                raise Exception("No packages found in response")
+            if not packages:
+                raise Exception("Không có gói dịch vụ nào")
 
-            logging.info(f"Found {len(packages)} packages")
-
+            # Hiển thị UI
             Clock.schedule_once(lambda dt: self.display_packages(packages), 0)
 
-        except requests.exceptions.Timeout as e:
-            logging.error("Request timeout")
+        except requests.exceptions.Timeout:
             error_msg = "Hết thời gian kết nối. Vui lòng thử lại."
+            logging.error(error_msg)
             Clock.schedule_once(lambda dt: self.show_error(error_msg), 0)
 
-        except requests.exceptions.ConnectionError as e:
-            logging.error("Connection error")
-            error_msg = "Không thể kết nối đến server. Kiểm tra kết nối mạng."
+        except requests.exceptions.ConnectionError:
+            error_msg = "Không thể kết nối đến server. Kiểm tra mạng."
+            logging.error(error_msg)
             Clock.schedule_once(lambda dt: self.show_error(error_msg), 0)
 
         except Exception as e:
             error_msg = f"Lỗi: {str(e)}"
-            logging.error(f"Error loading packages: {error_msg}", exc_info=True)
+            logging.error(error_msg, exc_info=True)
             Clock.schedule_once(lambda dt: self.show_error(error_msg), 0)
 
     def display_packages(self, packages):
