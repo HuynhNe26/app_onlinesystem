@@ -1,0 +1,78 @@
+import logging
+from kivymd.app import MDApp
+from kivy.uix.screenmanager import ScreenManager, FadeTransition
+from kivy.core.window import Window
+from kivy.utils import platform
+
+from src.screens.intro.intro import IntroScreen
+from src.screens.intro.intro_info import IntroInfoScreen
+from src.screens.account.login import LoginScreen
+from src.screens.account.register import RegisterScreen
+from src.screens.home import HomeScreen
+from src.screens.package.package import PackageScreen
+from src.screens.package.payment import PaymentScreen
+from src.screens.error_404 import Error404Screen
+from src.utils.network_check import NetworkCheck
+from src.screens.exam.exam_setup import ExamSetupScreen
+from src.screens.exam.exam_question import ExamQuestionScreen
+from src.screens.exam.exam_result import ExamResultScreen
+from src.screens.exam.exam_history import ExamHistoryScreen
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+
+
+class EducationPlus(MDApp):
+    def build(self):
+        try:
+            if platform != "android" and platform != "ios":
+                Window.size = (860, 640)
+
+            self.theme_cls.theme_style = "Dark"
+            self.theme_cls.primary_palette = "Blue"
+            self.theme_cls.primary_hue = "700"
+
+            sm = ScreenManager(transition=FadeTransition())
+
+            screens = [
+                (IntroScreen, 'intro'),
+                (IntroInfoScreen, 'intro_info'),
+                (LoginScreen, 'login'),
+                (RegisterScreen, 'register'),
+                (HomeScreen, 'home'),
+                (ExamSetupScreen, 'exam_setup'),
+                (ExamQuestionScreen, 'exam_question'),
+                (ExamResultScreen, 'exam_result'),
+                (ExamHistoryScreen, 'exam_history'),
+                (PackageScreen, 'package'),
+                (PaymentScreen, 'payment'),
+                (Error404Screen, 'error_404')
+            ]
+
+            for screen_class, name in screens:
+                try:
+                    sm.add_widget(screen_class(name=name))
+                    logging.debug(f"Added screen: {name}")
+                except Exception as e:
+                    logging.error(f"Lỗi chạy màn hình {name}: {str(e)}", exc_info=True)
+                    raise
+
+            return sm
+        except Exception as e:
+            logging.error(f"Lỗi: {str(e)}", exc_info=True)
+            raise
+
+    def change_screen_with_network_check(self, next_screen):
+        NetworkCheck.check_and_proceed(self, next_screen)
+
+
+if __name__ == '__main__':
+    try:
+        EducationPlus().run()
+    except Exception as e:
+        logging.error(f"Ứng dụng bị ngắt: {str(e)}", exc_info=True)
+        raise
