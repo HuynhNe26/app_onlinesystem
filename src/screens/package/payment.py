@@ -20,7 +20,6 @@ API_BASE_URL = "https://backend-onlinesystem.onrender.com"
 
 class PaymentScreen(Screen):
 
-    # ---------------------- LOAD DATA --------------------------
     def load_user_and_package(self):
         store = JsonStore("user.json")
 
@@ -30,7 +29,6 @@ class PaymentScreen(Screen):
 
         return user, pkg, token
 
-    # ---------------------- MAIN UI ---------------------------
     def on_pre_enter(self):
         try:
             self.clear_widgets()
@@ -40,7 +38,6 @@ class PaymentScreen(Screen):
 
             root = BoxLayout(orientation='vertical')
 
-            # ---------- TOP BAR ----------
             topbar = BoxLayout(
                 orientation='horizontal',
                 size_hint_y=None, height=dp(55),
@@ -64,12 +61,10 @@ class PaymentScreen(Screen):
             topbar.add_widget(title)
             root.add_widget(topbar)
 
-            # ---------- CONTENT ----------
             scroll = ScrollView(size_hint=(1, 1))
             content = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15), size_hint_y=None)
             content.bind(minimum_height=content.setter("height"))
 
-            # ---- Check user login ----
             if not user:
                 content.add_widget(Label(text="Vui lòng đăng nhập để tiếp tục.", font_size=18))
                 scroll.add_widget(content)
@@ -77,7 +72,6 @@ class PaymentScreen(Screen):
                 self.add_widget(root)
                 return
 
-            # ---- Check package ----
             if not pkg:
                 content.add_widget(Label(text="Chưa chọn gói dịch vụ nào.", font_size=18))
                 scroll.add_widget(content)
@@ -85,13 +79,11 @@ class PaymentScreen(Screen):
                 self.add_widget(root)
                 return
 
-            # ---------- USER INFO ----------
             user_box = self.create_info_box(dp(100))
             user_box.add_widget(Label(text=f"Họ và tên: {user.get('fullName')}", font_size=18))
             user_box.add_widget(Label(text=f"Email: {user.get('email')}", font_size=16))
             content.add_widget(user_box)
 
-            # ---------- PACKAGE INFO ----------
             pkg_box = self.create_info_box(dp(150), bg_color=get_color_from_hex("#F4F6F8"))
             pkg_box.add_widget(Label(text=f"Gói đã chọn: {pkg['name_package']}", font_size=18, bold=True))
             pkg_box.add_widget(Label(text=f"Giá: {pkg['price_month']:,}đ/tháng", font_size=16))
@@ -99,7 +91,6 @@ class PaymentScreen(Screen):
 
             content.add_widget(Widget(size_hint_y=None, height=dp(10)))
 
-            # ---------- PAYMENT METHOD ----------
             self.selected_method = "momo"
 
             def select_momo():
@@ -129,7 +120,6 @@ class PaymentScreen(Screen):
             refresh_menu()
             content.add_widget(menu_box)
 
-            # ---------- BUTTON PAY ----------
             content.add_widget(Button(
                 text="Tiến hành thanh toán",
                 size_hint_y=None, height=dp(55),
@@ -150,7 +140,6 @@ class PaymentScreen(Screen):
             logging.error(e)
             self.show_popup("Lỗi", str(e))
 
-    # ---------------------- BOX UI STYLE -------------------------
     def create_info_box(self, height, bg_color=(0.95, 0.95, 1, 1)):
         box = BoxLayout(orientation='vertical', padding=dp(10), spacing=5, size_hint_y=None, height=height)
         with box.canvas.before:
@@ -163,7 +152,6 @@ class PaymentScreen(Screen):
         instance.rect.pos = instance.pos
         instance.rect.size = instance.size
 
-    # ---------------------- MENU ITEM --------------------------
     class PaymentMenuItem(ButtonBehavior, BoxLayout):
         def __init__(self, text, icon, selected=False, on_select=None, **kwargs):
             super().__init__(orientation="horizontal", padding=dp(12), spacing=dp(12),
@@ -190,7 +178,7 @@ class PaymentScreen(Screen):
             if self.on_select:
                 self.on_select()
 
-    # ---------------------- PAYMENT --------------------------
+
     def send_payment(self, method, pkg, user, token, key_name):
         try:
             headers = {"Authorization": f"Bearer {token}"}
@@ -222,7 +210,6 @@ class PaymentScreen(Screen):
     def pay_with_vnpay(self, pkg, user, token):
         self.send_payment("vnpay", pkg, user, token, "payUrl")
 
-    # ---------------------- POPUP --------------------------
     def show_popup(self, title, message):
         Popup(title=title, content=Label(text=message),
               size_hint=(0.7, 0.4)).open()

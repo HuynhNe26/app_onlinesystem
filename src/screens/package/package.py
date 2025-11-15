@@ -83,19 +83,11 @@ class PackageScreen(Screen):
         # Load packages trong thread riêng để không block UI
         threading.Thread(target=self.load_packages, daemon=True).start()
 
-    # ----------------------------------------------------------
-    # 🟦 LOAD GÓI TỪ API - FIXED VERSION
-    # ----------------------------------------------------------
     def load_packages(self):
         try:
             logging.info("Loading packages from API...")
 
-            # Thử nhiều endpoint có thể
-            api_endpoints = [
-                "https://backend-onlinesystem.onrender.com/api/packages",
-                "https://backend-onlinesystem.onrender.com/packages",
-                "https://backend-onlinesystem.onrender.com/api/package",
-            ]
+            api_endpoints = "https://backend-onlinesystem.onrender.com/api/packages"
 
             response = None
             last_error = None
@@ -130,11 +122,9 @@ class PackageScreen(Screen):
             logging.info(f"Response status: {response.status_code}")
             logging.info(f"Response content: {response.text[:500]}")  # Log 500 ký tự đầu
 
-            # Parse JSON
             json_data = response.json()
             logging.info(f"JSON data: {json_data}")
 
-            # Kiểm tra cấu trúc response
             if "data" not in json_data:
                 raise Exception(f"Invalid response format. Response: {json_data}")
 
@@ -145,7 +135,6 @@ class PackageScreen(Screen):
 
             logging.info(f"Found {len(packages)} packages")
 
-            # Update UI trên main thread
             Clock.schedule_once(lambda dt: self.display_packages(packages), 0)
 
         except requests.exceptions.Timeout as e:
@@ -164,7 +153,6 @@ class PackageScreen(Screen):
             Clock.schedule_once(lambda dt: self.show_error(error_msg), 0)
 
     def display_packages(self, packages):
-        """Hiển thị danh sách packages trên UI"""
         self.grid.clear_widgets()
 
         for idx, pkg in enumerate(packages):
@@ -173,7 +161,6 @@ class PackageScreen(Screen):
         logging.info(f"Displayed {len(packages)} packages successfully!")
 
     def show_error(self, message):
-        """Hiển thị thông báo lỗi"""
         self.grid.clear_widgets()
         error_label = Label(
             text=message,
@@ -189,14 +176,10 @@ class PackageScreen(Screen):
             size_hint=(0.7, 0.4),
         ).open()
 
-    # ----------------------------------------------------------
     def update_bg(self, *args):
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
 
-    # ----------------------------------------------------------
-    # 🟩 LƯU GÓI VÀO JSON – KHÔNG QUA MODEL NỮA
-    # ----------------------------------------------------------
     def set_package(self, pkg):
         """
         Lưu thông tin gói đã chọn vào JsonStore
@@ -215,9 +198,6 @@ class PackageScreen(Screen):
             logging.error("Error saving package.", exc_info=True)
             raise
 
-    # ----------------------------------------------------------
-    # 🟩 TẠO CARD GÓI
-    # ----------------------------------------------------------
     def create_package_card(self, pkg, index):
         colors = [
             (0.90, 0.95, 1, 1),
@@ -251,7 +231,6 @@ class PackageScreen(Screen):
         title_label.bind(size=title_label.setter('text_size'))
         card.add_widget(title_label)
 
-        # Price
         if pkg["price_month"] == 0:
             price_label = Label(
                 text="Miễn phí",
@@ -270,7 +249,6 @@ class PackageScreen(Screen):
             )
         card.add_widget(price_label)
 
-        # Desc
         desc_label = Label(
             text=pkg.get("description_package", ""),
             font_size=14,
@@ -281,10 +259,8 @@ class PackageScreen(Screen):
         desc_label.bind(size=desc_label.setter("text_size"))
         card.add_widget(desc_label)
 
-        # Buttons
         btn_layout = BoxLayout(size_hint_y=None, height=45, spacing=10)
 
-        # Detail button
         btn_detail = Button(
             text='Chi tiết',
             background_color=(0.2, 0.7, 0.5, 1),
@@ -307,12 +283,10 @@ class PackageScreen(Screen):
 
         return card
 
-    # ----------------------------------------------------------
     def update_rect(self, instance, value):
         instance.rect.pos = instance.pos
         instance.rect.size = instance.size
 
-    # ----------------------------------------------------------
     def go_to_payment(self, pkg):
         try:
             self.set_package(pkg)
@@ -330,7 +304,6 @@ class PackageScreen(Screen):
                 size_hint=(0.7, 0.4)
             ).open()
 
-    # ----------------------------------------------------------
     def show_detail(self, pkg):
         Popup(
             title=pkg['name_package'],

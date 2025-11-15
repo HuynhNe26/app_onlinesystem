@@ -16,10 +16,8 @@ class HomeScreen(Screen):
         super(HomeScreen, self).__init__(**kwargs)
         self.user_data = None
 
-        # === Root Layout với FloatLayout để overlay menu ===
         root_layout = FloatLayout()
 
-        # === Main Content Layout ===
         main_layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
 
         header = BoxLayout(orientation='horizontal', size_hint=(1, 0.08))
@@ -68,7 +66,6 @@ class HomeScreen(Screen):
             if avatar_path and os.path.exists(avatar_path):
                 self.avatar_container.circle.source = avatar_path
             else:
-                # Fallback: Avatar mặc định theo giới tính
                 gender = self.user_data.get('gender', 'Nam')
                 default_avatar = 'src/assets/Avt/nam.png' if gender == 'Nam' else 'src/assets/Avt/nu.png'
                 if os.path.exists(default_avatar):
@@ -143,14 +140,7 @@ class HomeScreen(Screen):
         )
         btn_test.bind(on_press=self.goto_test)
 
-        btn_exam = Button(
-            text="🧠 Thi thử",
-            background_color=(0.1, 0.8, 0.4, 1)
-        )
-        btn_exam.bind(on_press=self.goto_exam)
-
         btn_box.add_widget(btn_test)
-        btn_box.add_widget(btn_exam)
 
         box.add_widget(btn_box)
         return box
@@ -241,9 +231,5 @@ class HomeScreen(Screen):
             self.manager.current = 'package'
 
     def goto_test(self, instance):
-        if self.manager:
-            self.manager.current = 'exam_setup'
-
-    def goto_exam(self, instance):
         if self.manager:
             self.manager.current = 'exam_setup'

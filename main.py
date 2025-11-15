@@ -12,7 +12,6 @@ from src.screens.home import HomeScreen
 from src.screens.package.package import PackageScreen
 from src.screens.package.payment import PaymentScreen
 from src.screens.error_404 import Error404Screen
-from src.utils.network_check import NetworkCheck
 from src.screens.exam.exam_setup import ExamSetupScreen
 from src.screens.exam.exam_question import ExamQuestionScreen
 from src.screens.exam.exam_result import ExamResultScreen
@@ -65,9 +64,6 @@ class EducationPlus(MDApp):
         except Exception as e:
             logging.error(f"Lỗi: {str(e)}", exc_info=True)
             raise
-
-    def change_screen_with_network_check(self, next_screen):
-        NetworkCheck.check_and_proceed(self, next_screen)
 
 
 if __name__ == '__main__':
