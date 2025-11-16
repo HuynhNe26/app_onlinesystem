@@ -1,3 +1,4 @@
+# src/screens/home.py
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
@@ -8,6 +9,7 @@ from kivy.uix.progressbar import ProgressBar
 from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle, Ellipse
 from kivy.metrics import dp
+from kivymd.uix.toolbar import MDTopAppBar
 import os
 
 
@@ -17,30 +19,76 @@ class HomeScreen(Screen):
         self.user_data = None
 
         root_layout = FloatLayout()
+        with root_layout.canvas.before:
+            Color(0, 0, 0, 1)  # Nền đen
+            self.bg_rect = RoundedRectangle(size=root_layout.size, pos=root_layout.pos)
+        root_layout.bind(size=self._update_root_bg, pos=self._update_root_bg)
 
-        main_layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
+        self.toolbar = MDTopAppBar(
+            title="Trang Chủ",
+            elevation=2,
+            pos_hint={"top": 0.98},
+            md_bg_color=(0, 0, 0, 1),
+            specific_text_color=(1, 1, 1, 1),
+            left_action_items=[["menu", lambda x: self.open_drawer()]]
+        )
+        root_layout.add_widget(self.toolbar)
 
-        header = BoxLayout(orientation='horizontal', size_hint=(1, 0.08))
-        header_label = Label(text='Trang chủ', bold=True, font_size='22sp', halign='center', valign='middle')
-        header_label.bind(size=lambda inst, val: self._auto_resize_label(inst))
-        header.add_widget(header_label)
-        main_layout.add_widget(header)
+        main_layout = BoxLayout(
+            orientation='vertical',
+            spacing=10,
+            padding=10,
+            size_hint=(1, None),
+            height=0
+        )
 
-        scroll = ScrollView(size_hint=(1, 0.92))
-        content = BoxLayout(orientation='vertical', spacing=15, size_hint_y=None, padding=(5, 5))
+        from kivy.core.window import Window
+        Window.bind(on_resize=lambda *args: self._update_main_layout_height(main_layout))
+        self._update_main_layout_height(main_layout)
+
+        scroll = ScrollView(
+            size_hint=(1, 1),
+            pos_hint={'x': 0, 'top': 0.89}
+        )
+        content = BoxLayout(
+            orientation='vertical',
+            spacing=15,
+            size_hint_y=None,
+            padding=(5, 5)
+        )
         content.bind(minimum_height=content.setter('height'))
 
         content.add_widget(self.create_user_card())
         content.add_widget(self.create_today_goal())
         content.add_widget(self.create_recent_activity())
-        content.add_widget(self.create_recommendation())
         content.add_widget(self.create_upgrade_banner())
 
         scroll.add_widget(content)
-        main_layout.add_widget(scroll)
-        self.add_widget(main_layout)
+        root_layout.add_widget(scroll)
+
+        self.add_widget(root_layout)
+
+    def _update_root_bg(self, instance, value):
+        if hasattr(self, 'bg_rect'):
+            self.bg_rect.pos = instance.pos
+            self.bg_rect.size = instance.size
+
+    def _update_main_layout_height(self, layout):
+        from kivy.core.window import Window
+        toolbar_height = dp(56)
+        layout.height = Window.height - toolbar_height
+
     def on_enter(self):
         self.load_user_data()
+
+    def open_drawer(self):
+        try:
+            from kivymd.app import MDApp
+            app = MDApp.get_running_app()
+            if hasattr(app, 'nav_drawer'):
+                app.nav_drawer.set_state("open")
+        except Exception as e:
+            print(f"Lỗi mở drawer: {e}")
 
     def load_user_data(self):
         try:
@@ -128,11 +176,22 @@ class HomeScreen(Screen):
     def create_today_goal(self):
         box = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=None, height=160)
         with box.canvas.before:
-            Color(1, 1, 1, 1)
+            Color(0.15, 0.15, 0.15, 1)  # Màu xám đen
             box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
         box.bind(size=self._update_bg, pos=self._update_bg)
 
-        btn_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=None, height=40)
+        # Tiêu đề
+        title = Label(
+            text='🎯 Mục tiêu hôm nay',
+            color=(1, 1, 1, 1),
+            font_size='16sp',
+            bold=True,
+            size_hint_y=None,
+            height=30
+        )
+        box.add_widget(title)
+
+        btn_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=None, height=50)
 
         btn_test = Button(
             text="🧩 Kiểm tra",
@@ -141,42 +200,26 @@ class HomeScreen(Screen):
         btn_test.bind(on_press=self.goto_test)
 
         btn_box.add_widget(btn_test)
-
         box.add_widget(btn_box)
         return box
 
     def create_recent_activity(self):
         box = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=None, height=170)
         with box.canvas.before:
-            Color(1, 1, 1, 1)
+            Color(0.15, 0.15, 0.15, 1)  # Màu xám đen
             box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
         box.bind(size=self._update_bg, pos=self._update_bg)
 
-        header = BoxLayout(orientation='horizontal')
-        lbl1 = Label(text='📚 Hoạt động gần đây', color=(0, 0, 0, 1), font_size='16sp', bold=True)
-        lbl2 = Label(text='Xem tất cả', color=(0, 0.6, 1, 1), font_size='14sp')
+        header = BoxLayout(orientation='horizontal', size_hint_y=None, height=30)
+        lbl1 = Label(text='📚 Hoạt động gần đây', color=(1, 1, 1, 1), font_size='16sp', bold=True)
+        lbl2 = Label(text='Xem tất cả', color=(0.2, 0.6, 1, 1), font_size='14sp')
         for lbl in (lbl1, lbl2):
             lbl.bind(size=lambda inst, val: self._auto_resize_label(inst))
             header.add_widget(lbl)
         box.add_widget(header)
 
         for text in ['• Toán học lớp 12 - Đề 1: 85 điểm', '• Hóa học - Bảng tuần hoàn: 78 điểm']:
-            lbl = Label(text=text, color=(0, 0, 0, 1))
-            lbl.bind(size=lambda inst, val: self._auto_resize_label(inst))
-            box.add_widget(lbl)
-        return box
-
-    def create_recommendation(self):
-        box = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=None, height=160)
-        with box.canvas.before:
-            Color(1, 1, 1, 1)
-            box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
-        box.bind(size=self._update_bg, pos=self._update_bg)
-
-        lbl1 = Label(text='💡 Đề xuất cho bạn', color=(0, 0, 0, 1), font_size='16sp', bold=True)
-        lbl2 = Label(text='Toán học: Hàm số bậc 2 – Cần cải thiện theo kết quả gần đây.', color=(0, 0, 0, 1))
-        lbl3 = Label(text='Vật lý: Động lực học – Củng cố kiến thức cơ bản.', color=(0, 0, 0, 1))
-        for lbl in (lbl1, lbl2, lbl3):
+            lbl = Label(text=text, color=(0.9, 0.9, 0.9, 1))
             lbl.bind(size=lambda inst, val: self._auto_resize_label(inst))
             box.add_widget(lbl)
         return box
@@ -196,15 +239,6 @@ class HomeScreen(Screen):
         btn.bind(on_press=self.goto_package)
         box.add_widget(btn)
         return box
-
-    def create_goal_row(self, subject, done, total):
-        layout = BoxLayout(orientation='vertical', size_hint_y=None, height=45)
-        lbl = Label(text=f"{subject}: {done}/{total} bài", color=(0, 0, 0, 1))
-        lbl.bind(size=lambda inst, val: self._auto_resize_label(inst))
-        layout.add_widget(lbl)
-        pb = ProgressBar(max=total, value=done, size_hint_y=None, height=10)
-        layout.add_widget(pb)
-        return layout
 
     def _update_bg(self, instance, value):
         if hasattr(instance, 'bg'):

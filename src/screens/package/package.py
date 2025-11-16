@@ -38,7 +38,7 @@ class PackageScreen(Screen):
             pass
 
         back_btn = ImageButton(
-            source="src/front_end/users/assets/icon/quaylai.png",
+            source="src/assets/icon/quaylai.png",
             size_hint=(None, None),
             size=(80, 80),
             allow_stretch=True,

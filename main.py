@@ -3,6 +3,7 @@ from kivymd.app import MDApp
 from kivy.uix.screenmanager import ScreenManager, FadeTransition
 from kivy.core.window import Window
 from kivy.utils import platform
+from kivymd.uix.navigationdrawer import MDNavigationLayout
 
 from src.screens.intro.intro import IntroScreen
 from src.screens.intro.intro_info import IntroInfoScreen
@@ -16,6 +17,8 @@ from src.screens.exam.exam_setup import ExamSetupScreen
 from src.screens.exam.exam_question import ExamQuestionScreen
 from src.screens.exam.exam_result import ExamResultScreen
 from src.screens.exam.exam_history import ExamHistoryScreen
+from src.components.navigation import NavigationDrawer
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -29,7 +32,7 @@ class EducationPlus(MDApp):
     def build(self):
         try:
             if platform != "android" and platform != "ios":
-                Window.size = (860, 640)
+                Window.size = (412, 915)
 
             self.theme_cls.theme_style = "Dark"
             self.theme_cls.primary_palette = "Blue"
@@ -60,7 +63,16 @@ class EducationPlus(MDApp):
                     logging.error(f"Lỗi chạy màn hình {name}: {str(e)}", exc_info=True)
                     raise
 
-            return sm
+            nav_layout = MDNavigationLayout()
+            nav_layout.add_widget(sm)
+
+            self.nav_drawer = NavigationDrawer(screen_manager=sm)
+            nav_layout.add_widget(self.nav_drawer)
+
+            self.screen_manager = sm
+
+            return nav_layout
+
         except Exception as e:
             logging.error(f"Lỗi: {str(e)}", exc_info=True)
             raise
