@@ -5,7 +5,8 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.dialog import MDDialog
 from kivy.lang import Builder
 from kivy.metrics import dp
-from kivy.properties import NumericProperty
+from kivy.properties import NumericProperty, BooleanProperty
+from kivy.clock import Clock
 import logging
 
 API_URL = "https://backend-onlinesystem.onrender.com/api/exam"
@@ -34,8 +35,44 @@ Builder.load_string("""
                 halign: 'center'
                 bold: True
 
+        # Loading Overlay
+        MDCard:
+            id: loading_overlay
+            size_hint: 1, 1
+            md_bg_color: 0, 0, 0, 0.7
+            elevation: 10
+            radius: [15, 15, 15, 15]
+            opacity: 1 if root.is_loading else 0
+            disabled: not root.is_loading
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(20)
+                padding: dp(40)
+                pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+                size_hint: None, None
+                size: dp(200), dp(200)
+
+                MDSpinner:
+                    size_hint: None, None
+                    size: dp(80), dp(80)
+                    pos_hint: {'center_x': 0.5}
+                    active: root.is_loading
+                    color: 1, 1, 1, 1
+
+                MDLabel:
+                    id: loading_text
+                    text: 'Đang tải...'
+                    halign: 'center'
+                    font_style: 'H6'
+                    theme_text_color: 'Custom'
+                    text_color: 1, 1, 1, 1
+
         # Content
         ScrollView:
+            opacity: 0 if root.is_loading else 1
+            disabled: root.is_loading
+
             MDBoxLayout:
                 orientation: 'vertical'
                 spacing: dp(20)
@@ -152,6 +189,8 @@ Builder.load_string("""
             spacing: dp(10)
             size_hint_y: None
             height: dp(110)
+            opacity: 0 if root.is_loading else 1
+            disabled: root.is_loading
 
             MDRaisedButton:
                 text: '🚀 Bắt đầu làm bài'
@@ -168,6 +207,7 @@ class ExamSetupScreen(MDScreen):
 
     selected_category_id = NumericProperty(0)
     selected_difficulty_id = NumericProperty(0)
+    is_loading = BooleanProperty(False)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -181,45 +221,65 @@ class ExamSetupScreen(MDScreen):
         """Load dữ liệu khi vào màn hình"""
         self.load_options()
 
+    def set_loading(self, loading, message="Đang tải..."):
+        """Bật/tắt hiệu ứng loading"""
+        self.is_loading = loading
+        if loading and hasattr(self, 'ids') and 'loading_text' in self.ids:
+            self.ids.loading_text.text = message
+
     def load_options(self):
         """Load categories và difficulties từ API - KHÔNG CẦN TOKEN"""
-        try:
-            # Load categories - KHÔNG CẦN JWT TOKEN
-            print(f"📡 Loading categories from: {API_URL}/categories")
-            res = requests.get(f"{API_URL}/categories", timeout=5)
+        self.set_loading(True, "Đang tải dữ liệu...")
 
-            print(f"📥 Categories response: {res.status_code}")
+        def _load():
+            try:
+                # Load categories - KHÔNG CẦN JWT TOKEN
+                print(f"📡 Loading categories from: {API_URL}/categories")
+                res = requests.get("https://backend-onlinesystem.onrender.com/api/categories/categories", timeout=5)
 
-            if res.status_code == 200:
-                data = res.json()
-                self.categories = data.get('categories', [])
-                print(f"✅ Loaded {len(self.categories)} categories: {[c['name_category'] for c in self.categories]}")
-            else:
-                print(f"❌ Failed to load categories: {res.text}")
-                self.show_error_dialog("Lỗi", f"Không tải được môn học: {res.status_code}")
+                print(f"📥 Categories response: {res.status_code}")
 
-            # Load difficulties - KHÔNG CẦN JWT TOKEN
-            print(f"📡 Loading difficulties from: {API_URL}/difficulty")
-            res = requests.get(f"{API_URL}/difficulty", timeout=5)
+                if res.status_code == 200:
+                    data = res.json()
+                    self.categories = data.get('categories', [])
+                    print(
+                        f"✅ Loaded {len(self.categories)} categories: {[c['name_category'] for c in self.categories]}")
+                else:
+                    print(f"❌ Failed to load categories: {res.text}")
+                    Clock.schedule_once(
+                        lambda dt: self.show_error_dialog("Lỗi", f"Không tải được môn học: {res.status_code}"))
 
-            print(f"📥 Difficulties response: {res.status_code}")
+                # Load difficulties - KHÔNG CẦN JWT TOKEN
+                print(f"📡 Loading difficulties from: {API_URL}/difficulty")
+                res = requests.get(f"{API_URL}/difficulty", timeout=5)
 
-            if res.status_code == 200:
-                data = res.json()
-                self.difficulties = data.get('difficulties', [])
-                print(f"✅ Loaded {len(self.difficulties)} difficulties: {[d['difficulty'] for d in self.difficulties]}")
-            else:
-                print(f"❌ Failed to load difficulties: {res.text}")
-                self.show_error_dialog("Lỗi", f"Không tải được độ khó: {res.status_code}")
+                print(f"📥 Difficulties response: {res.status_code}")
 
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Network error: {e}")
-            self.show_error_dialog("Lỗi kết nối", f"Không thể kết nối server: {str(e)}")
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            import traceback
-            traceback.print_exc()
-            self.show_error_dialog("Lỗi", f"Không tải được dữ liệu: {str(e)}")
+                if res.status_code == 200:
+                    data = res.json()
+                    self.difficulties = data.get('difficulties', [])
+                    print(
+                        f"✅ Loaded {len(self.difficulties)} difficulties: {[d['difficulty'] for d in self.difficulties]}")
+                else:
+                    print(f"❌ Failed to load difficulties: {res.text}")
+                    Clock.schedule_once(
+                        lambda dt: self.show_error_dialog("Lỗi", f"Không tải được độ khó: {res.status_code}"))
+
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Network error: {e}")
+                Clock.schedule_once(
+                    lambda dt: self.show_error_dialog("Lỗi kết nối", f"Không thể kết nối server: {str(e)}"))
+            except Exception as e:
+                print(f"❌ Error: {e}")
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", f"Không tải được dữ liệu: {str(e)}"))
+            finally:
+                Clock.schedule_once(lambda dt: self.set_loading(False))
+
+        # Chạy trong thread để không block UI
+        import threading
+        threading.Thread(target=_load, daemon=True).start()
 
     def show_category_menu(self):
         """Hiển thị menu chọn môn học"""
@@ -296,50 +356,63 @@ class ExamSetupScreen(MDScreen):
             self.show_error_dialog("Lỗi", "Số câu hỏi phải là số nguyên dương!")
             return
 
-        try:
-            token = self.get_token()
+        self.set_loading(True, "Đang tạo đề thi...")
 
-            payload = {
-                "category_id": self.selected_category_id,
-                "difficulty_id": self.selected_difficulty_id,
-                "num_questions": num_questions
-            }
+        def _create():
+            try:
+                token = self.get_token()
 
-            print(f"📤 Creating exam with payload: {payload}")
-            print(f"🔑 Using token: {token[:30]}..." if token else "No token")
+                payload = {
+                    "category_id": self.selected_category_id,
+                    "difficulty_id": self.selected_difficulty_id,
+                    "num_questions": num_questions
+                }
 
-            res = requests.post(
-                f"{API_URL}/exam/create",
-                json=payload,
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=10
-            )
+                print(f"📤 Creating exam with payload: {payload}")
+                print(f"🔑 Using token: {token[:30]}..." if token else "No token")
 
-            print(f"📥 Create exam response: {res.status_code}")
+                res = requests.post(
+                    f"{API_URL}/exam/create",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10
+                )
 
-            data = res.json()
-            print(f"📥 Response data: {data}")
+                print(f"📥 Create exam response: {res.status_code}")
 
-            if res.status_code == 200 and data.get('success'):
-                exam_data = data.get('exam')
-                print(f"✅ Exam created: ID={exam_data['id_ex']}")
+                data = res.json()
+                print(f"📥 Response data: {data}")
 
-                question_screen = self.manager.get_screen('exam_question')
-                question_screen.set_exam(exam_data)
-                self.manager.current = 'exam_question'
-            else:
-                error_msg = data.get('message', 'Không tạo được đề thi')
-                print(f"❌ Create exam failed: {error_msg}")
-                self.show_error_dialog("Lỗi", error_msg)
+                if res.status_code == 200 and data.get('success'):
+                    exam_data = data.get('exam')
+                    print(f"✅ Exam created: ID={exam_data['id_ex']}")
 
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Network error: {e}")
-            self.show_error_dialog("Lỗi kết nối", f"Không thể kết nối server: {str(e)}")
-        except Exception as e:
-            print(f"❌ Error creating exam: {e}")
-            import traceback
-            traceback.print_exc()
-            self.show_error_dialog("Lỗi", f"Lỗi khi tạo đề thi: {str(e)}")
+                    def _navigate(dt):
+                        question_screen = self.manager.get_screen('exam_question')
+                        question_screen.set_exam(exam_data)
+                        self.manager.current = 'exam_question'
+
+                    Clock.schedule_once(_navigate)
+                else:
+                    error_msg = data.get('message', 'Không tạo được đề thi')
+                    print(f"❌ Create exam failed: {error_msg}")
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", error_msg))
+
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Network error: {e}")
+                Clock.schedule_once(
+                    lambda dt: self.show_error_dialog("Lỗi kết nối", f"Không thể kết nối server: {str(e)}"))
+            except Exception as e:
+                print(f"❌ Error creating exam: {e}")
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", f"Lỗi khi tạo đề thi: {str(e)}"))
+            finally:
+                Clock.schedule_once(lambda dt: self.set_loading(False))
+
+        # Chạy trong thread
+        import threading
+        threading.Thread(target=_create, daemon=True).start()
 
 
     def go_back(self):
@@ -347,33 +420,29 @@ class ExamSetupScreen(MDScreen):
         self.manager.current = 'home'
 
     def get_token(self):
-        """Lấy token từ storage"""
+        """Lấy JWT token đã lưu khi login."""
         try:
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
 
-            # Cách 1: Token lưu riêng trong key 'token'
-            if store.exists('token'):
-                token_data = store.get('token')
-                token = token_data.get('access_token')
-                if token:
-                    print(f"✅ Token found in 'token' key")
+            if store.exists("auth"):
+                auth_data = store.get("auth")
+                token = auth_data.get("token")
+
+                if token and len(token.split(".")) == 3:
+                    # Token đúng format JWT
+                    print(f"🔑 Loaded token: {token[:30]}...")
                     return token
 
-            # Cách 2: Token lưu trong user
-            if store.exists('user'):
-                user_data = store.get('user')
-                token = user_data.get('token') or user_data.get('access_token')
-                if token:
-                    print(f"✅ Token found in 'user' key")
-                    return token
+                print("❌ Token trong auth không hợp lệ")
+                return None
 
-            print("⚠️ No token found, using demo_token")
-            return "demo_token"
+            print("❌ Không tìm thấy auth trong user.json")
+            return None
 
         except Exception as e:
             print(f"❌ Error getting token: {e}")
-            return "demo_token"
+            return None
 
     def show_error_dialog(self, title, message):
         """Hiển thị dialog lỗi"""

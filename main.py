@@ -32,7 +32,7 @@ class EducationPlus(MDApp):
     def build(self):
         try:
             if platform != "android" and platform != "ios":
-                Window.size = (412, 915)
+                Window.size = (350, 615)
 
             self.theme_cls.theme_style = "Dark"
             self.theme_cls.primary_palette = "Blue"
