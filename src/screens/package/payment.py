@@ -28,7 +28,6 @@ class PaymentScreen(Screen):
         self.loading_widget = None
 
     def load_user_and_package(self):
-        """Load user, package và token từ JsonStore"""
         store = JsonStore("user.json")
 
         user = None
@@ -285,9 +284,6 @@ class PaymentScreen(Screen):
                     "name_package": f"Mua gói {pkg['name_package']}",
                     "id_package": int(pkg["id_package"])
                 }
-
-                print(f"Sending payment request to: {API_BASE_URL}/api/payment/{method}/{method}")
-                print(f"Payload: {payload}")
 
                 response = requests.post(
                     f"{API_BASE_URL}/api/payment/{method}/{method}",
