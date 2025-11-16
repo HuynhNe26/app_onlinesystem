@@ -35,31 +35,17 @@ class PaymentScreen(Screen):
         token = None
         pkg = None
 
-        # Lấy user và token từ key "auth"
         if store.exists("auth"):
             auth_data = store.get("auth")
             user = auth_data.get("user")
             token = auth_data.get("token")
 
-        # Lấy package
         if store.exists("package"):
             pkg = store.get("package")
-
-        print(f"[DEBUG] User loaded: {user}")
-        print(f"[DEBUG] Token loaded: {token is not None}")
-        print(f"[DEBUG] Package loaded: {pkg}")
 
         return user, pkg, token
 
     def show_loading(self, message="Đang xử lý...", style="spinner"):
-        """
-        Hiển thị loading screen
-
-        style options:
-        - "spinner": Vòng tròn xoay (mặc định)
-        - "dots": Ba chấm nhảy
-        - "bar": Thanh tiến trình
-        """
         if self.loading_widget:
             return
 
@@ -67,7 +53,7 @@ class PaymentScreen(Screen):
             self.loading_widget = LoadingDots(message=message)
         elif style == "bar":
             self.loading_widget = LoadingBar(message=message)
-        else:  # spinner (default)
+        else:
             self.loading_widget = LoadingWidget(
                 message=message,
                 spinner_color=(0.12, 0.56, 1, 1)  # Màu xanh
@@ -76,14 +62,12 @@ class PaymentScreen(Screen):
         self.add_widget(self.loading_widget)
 
     def hide_loading(self):
-        """Ẩn loading screen"""
         if self.loading_widget:
             self.loading_widget.stop()
             self.remove_widget(self.loading_widget)
             self.loading_widget = None
 
     def on_pre_enter(self):
-        print("=== PaymentScreen on_pre_enter ===")
         try:
             self.clear_widgets()
             Window.clearcolor = (1, 1, 1, 1)
@@ -92,7 +76,6 @@ class PaymentScreen(Screen):
 
             root = BoxLayout(orientation='vertical')
 
-            # Top bar
             topbar = BoxLayout(
                 orientation='horizontal',
                 size_hint_y=None, height=dp(55),
@@ -159,7 +142,6 @@ class PaymentScreen(Screen):
             ))
             content.add_widget(user_box)
 
-            # Package info box
             pkg_box = self.create_info_box(dp(150), bg_color=get_color_from_hex("#F4F6F8"))
             pkg_box.add_widget(Label(
                 text=f"Gói đã chọn: {pkg['name_package']}",
@@ -193,13 +175,13 @@ class PaymentScreen(Screen):
                 menu_box.clear_widgets()
                 menu_box.add_widget(self.PaymentMenuItem(
                     "Thanh toán qua MoMo",
-                    "src/front_end/users/assets/icon/MOMO.png",
+                    "src/assets/icon/MOMO.png",
                     selected=(self.selected_method == "momo"),
                     on_select=select_momo
                 ))
                 menu_box.add_widget(self.PaymentMenuItem(
                     "Thanh toán qua VNPay",
-                    "src/front_end/users/assets/icon/VNPAY.png",
+                    "src/assets/icon/VNPAY.png",
                     selected=(self.selected_method == "vnpay"),
                     on_select=select_vnpay
                 ))
