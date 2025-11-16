@@ -19,7 +19,7 @@ class HomeScreen(Screen):
 
         root_layout = FloatLayout()
         with root_layout.canvas.before:
-            Color(0, 0, 0, 1)  # Nền đen
+            Color(0, 0, 0, 1)
             self.bg_rect = RoundedRectangle(size=root_layout.size, pos=root_layout.pos)
         root_layout.bind(size=self._update_root_bg, pos=self._update_root_bg)
 
@@ -179,9 +179,8 @@ class HomeScreen(Screen):
             box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
         box.bind(size=self._update_bg, pos=self._update_bg)
 
-        # Tiêu đề
         title = Label(
-            text='🎯 Mục tiêu hôm nay',
+            text='Số lần làm bài:',
             color=(1, 1, 1, 1),
             font_size='16sp',
             bold=True,

@@ -211,7 +211,7 @@ class ExamHistoryScreen(MDScreen):
 
     def go_back(self):
         """Quay lại màn hình trước"""
-        self.manager.current = 'exam_setup'
+        self.manager.current = 'home'
 
     def refresh_history(self):
         """Làm mới lịch sử"""

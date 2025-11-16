@@ -160,13 +160,6 @@ Builder.load_string("""
                 height: dp(50)
                 md_bg_color: 0.2, 0.8, 0.2, 1
                 on_release: root.create_exam()
-
-            MDFlatButton:
-                text: '📊 Xem lịch sử'
-                size_hint_x: 1
-                size_hint_y: None
-                height: dp(50)
-                on_release: root.view_history()
 """)
 
 
@@ -348,15 +341,6 @@ class ExamSetupScreen(MDScreen):
             traceback.print_exc()
             self.show_error_dialog("Lỗi", f"Lỗi khi tạo đề thi: {str(e)}")
 
-    def view_history(self):
-        """Chuyển sang màn hình lịch sử"""
-        try:
-            history_screen = self.manager.get_screen('exam_history')
-            history_screen.load_history()
-            self.manager.current = 'exam_history'
-        except Exception as e:
-            print(f"❌ Error navigating to history: {e}")
-            self.show_error_dialog("Lỗi", "Không thể mở lịch sử")
 
     def go_back(self):
         """Quay lại màn hình home"""
