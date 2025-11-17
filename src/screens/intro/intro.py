@@ -2,8 +2,9 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.image import Image
 from kivy.uix.floatlayout import FloatLayout
 from kivy.graphics import Color, Rectangle
-from kivy.clock import Clock
 from kivy.storage.jsonstore import JsonStore
+from kivy.clock import Clock
+from datetime import datetime, timedelta
 
 class IntroScreen(Screen):
     def __init__(self, **kwargs):
@@ -36,18 +37,33 @@ class IntroScreen(Screen):
 
     def check_user_login(self, dt):
         try:
-            store = JsonStore('user.json')
-            if store.exists('auth'):
-                auth_data = store.get('auth')
+            store = JsonStore("user.json")
 
-                user = auth_data.get("user", None)
+            if not store.exists("auth"):
+                return self.goto_intro_info()
 
-                if user:
-                    self.manager.current = "home"
-                    return
-            Clock.schedule_once(self.goto_intro_info, 2)
+            data = store.get("auth")
+
+            user = data.get("user")
+            login_time_str = data.get("login_time")
+
+            if not user or not login_time_str:
+                return self.goto_intro_info()
+
+            login_time = datetime.fromisoformat(login_time_str)
+            now = datetime.now()
+
+            delta = now - login_time
+
+            if delta <= timedelta(days=1):
+                store.put("auth", token=data["token"], user=user, login_time=now.isoformat())
+                self.manager.current = "home"
+                return
+            self.goto_intro_info()
+
         except Exception as e:
-            print("Lỗi kiểm tra token:", e)
-            Clock.schedule_once(self.goto_intro_info, 2)
-    def goto_intro_info(self, dt):
-        self.manager.current = 'intro_info'
+            print("Lỗi IntroScreen:", e)
+            self.goto_intro_info()
+
+    def goto_intro_info(self, *args):
+        self.manager.current = "intro_info"

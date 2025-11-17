@@ -355,7 +355,7 @@ class LoginScreen(Screen):
 
             if response.status_code == 200 and data.get('success'):
                 store = JsonStore('user.json')
-                store.put('auth', token=data['token'], user=data['user'])
+                store.put('auth', token=data['token'], user=data['user'], login_time=data['login_time'])
 
                 Clock.schedule_once(lambda dt: self._on_login_success(data['user']['fullName']))
             else:
