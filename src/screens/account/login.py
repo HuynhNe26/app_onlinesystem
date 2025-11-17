@@ -52,7 +52,6 @@ class LoginScreen(Screen):
             spacing=dp(15)
         )
 
-        # Logo
         logo = Image(
             source="src/assets/logo.png",
             size_hint=(None, None),
@@ -100,14 +99,11 @@ class LoginScreen(Screen):
             elevation=6
         )
 
-        # Email field
         self.email = self._create_text_field("Email")
         card.add_widget(self.email)
 
-        # Password field
         card.add_widget(self._create_password_field())
 
-        # Forgot password link
         forgot_box = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None,
@@ -123,7 +119,6 @@ class LoginScreen(Screen):
         forgot_box.add_widget(forgot_btn)
         card.add_widget(forgot_box)
 
-        # Login button with gradient effect
         login_btn = MDRaisedButton(
             text="Đăng nhập",
             md_bg_color=(0.18, 0.38, 0.78, 1),
@@ -135,7 +130,6 @@ class LoginScreen(Screen):
         login_btn.font_size = dp(16)
         card.add_widget(login_btn)
 
-        # Quick login options
         divider_box = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None,
@@ -163,7 +157,6 @@ class LoginScreen(Screen):
         divider_box.add_widget(line2)
         card.add_widget(divider_box)
 
-        # Social login buttons
         social_box = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None,
