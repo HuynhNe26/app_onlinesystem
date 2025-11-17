@@ -1,180 +1,20 @@
 import requests
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.button import MDFlatButton
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.label import MDLabel
+from kivymd.uix.button import MDRaisedButton, MDIconButton
+from kivymd.uix.card import MDCard
+from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.dialog import MDDialog
-from kivy.lang import Builder
+from kivymd.uix.spinner import MDSpinner
+from kivy.uix.modalview import ModalView
 from kivy.metrics import dp
 from kivy.properties import NumericProperty, BooleanProperty
 from kivy.clock import Clock
-import logging
+import threading
 
 API_URL = "https://backend-onlinesystem.onrender.com/api/exam"
-
-Builder.load_string("""
-<ExamSetupScreen>:
-    MDBoxLayout:
-        orientation: 'vertical'
-        padding: dp(20)
-        spacing: dp(15)
-
-        # Header
-        MDBoxLayout:
-            size_hint_y: None
-            height: dp(60)
-
-            MDIconButton:
-                icon: 'arrow-left'
-                on_release: root.go_back()
-                size_hint_x: None
-                width: dp(50)
-
-            MDLabel:
-                text: 'Chọn bài kiểm tra'
-                font_style: 'H5'
-                halign: 'center'
-                bold: True
-
-        # Loading Overlay
-        MDCard:
-            id: loading_overlay
-            size_hint: 1, 1
-            md_bg_color: 0, 0, 0, 0.7
-            elevation: 10
-            radius: [15, 15, 15, 15]
-            opacity: 1 if root.is_loading else 0
-            disabled: not root.is_loading
-
-            MDBoxLayout:
-                orientation: 'vertical'
-                spacing: dp(20)
-                padding: dp(40)
-                pos_hint: {'center_x': 0.5, 'center_y': 0.5}
-                size_hint: None, None
-                size: dp(200), dp(200)
-
-                MDSpinner:
-                    size_hint: None, None
-                    size: dp(80), dp(80)
-                    pos_hint: {'center_x': 0.5}
-                    active: root.is_loading
-                    color: 1, 1, 1, 1
-
-                MDLabel:
-                    id: loading_text
-                    text: 'Đang tải...'
-                    halign: 'center'
-                    font_style: 'H6'
-                    theme_text_color: 'Custom'
-                    text_color: 1, 1, 1, 1
-
-        # Content
-        ScrollView:
-            opacity: 0 if root.is_loading else 1
-            disabled: root.is_loading
-
-            MDBoxLayout:
-                orientation: 'vertical'
-                spacing: dp(20)
-                padding: dp(10)
-                size_hint_y: None
-                height: self.minimum_height
-
-                # Department selection
-                MDCard:
-                    orientation: 'vertical'
-                    spacing: dp(8)
-                    padding: dp(15)
-                    size_hint_y: None
-                    height: dp(100)
-                    elevation: 2
-                    radius: [15, 15, 15, 15]
-
-                    MDLabel:
-                        text: 'Chọn môn:'
-                        size_hint_y: None
-                        height: dp(30)
-                        font_style: 'Subtitle1'
-                        bold: True
-
-                    MDRaisedButton:
-                        id: department_button
-                        text: 'Chọn môn...'
-                        size_hint_x: 1
-                        size_hint_y: None
-                        height: dp(48)
-                        on_release: root.show_department_menu()
-
-                # Class selection
-                MDCard:
-                    orientation: 'vertical'
-                    spacing: dp(8)
-                    padding: dp(15)
-                    size_hint_y: None
-                    height: dp(100)
-                    elevation: 2
-                    radius: [15, 15, 15, 15]
-
-                    MDLabel:
-                        text: 'Chọn lớp:'
-                        size_hint_y: None
-                        height: dp(30)
-                        font_style: 'Subtitle1'
-                        bold: True
-
-                    MDRaisedButton:
-                        id: class_button
-                        text: 'Chọn lớp...'
-                        size_hint_x: 1
-                        size_hint_y: None
-                        height: dp(48)
-                        disabled: True
-                        on_release: root.show_class_menu()
-
-                # Exam selection
-                MDCard:
-                    orientation: 'vertical'
-                    spacing: dp(8)
-                    padding: dp(15)
-                    size_hint_y: None
-                    height: dp(100)
-                    elevation: 2
-                    radius: [15, 15, 15, 15]
-
-                    MDLabel:
-                        text: 'Chọn đề thi:'
-                        size_hint_y: None
-                        height: dp(30)
-                        font_style: 'Subtitle1'
-                        bold: True
-
-                    MDRaisedButton:
-                        id: exam_button
-                        text: 'Chọn đề thi...'
-                        size_hint_x: 1
-                        size_hint_y: None
-                        height: dp(48)
-                        disabled: True
-                        on_release: root.show_exam_menu()
-
-
-        # Action buttons
-        MDBoxLayout:
-            orientation: 'vertical'
-            spacing: dp(10)
-            size_hint_y: None
-            height: dp(110)
-            opacity: 0 if root.is_loading else 1
-            disabled: root.is_loading
-
-            MDRaisedButton:
-                text: 'Bắt đầu làm bài'
-                size_hint_x: 1
-                size_hint_y: None
-                height: dp(50)
-                md_bg_color: 0.2, 0.8, 0.2, 1
-                on_release: root.start_exam()
-""")
 
 
 class ExamSetupScreen(MDScreen):
@@ -185,6 +25,7 @@ class ExamSetupScreen(MDScreen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.md_bg_color = (0.05, 0.08, 0.16, 1)
         self.departments = []
         self.classes = []
         self.exams = []
@@ -192,41 +33,347 @@ class ExamSetupScreen(MDScreen):
         self.class_menu = None
         self.exam_menu = None
         self.dialog = None
+        self.loading_modal = None
+        self._build_ui()
+
+    def _build_ui(self):
+        scroll = MDScrollView(size_hint=(1, 1))
+        root_layout = MDBoxLayout(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(20),
+            size_hint_y=None
+        )
+        root_layout.bind(minimum_height=root_layout.setter('height'))
+
+        # Header
+        root_layout.add_widget(self._create_header())
+
+        # Selection cards
+        root_layout.add_widget(self._create_department_card())
+        root_layout.add_widget(self._create_class_card())
+        root_layout.add_widget(self._create_exam_card())
+
+        # Start button
+        root_layout.add_widget(self._create_start_button())
+
+        scroll.add_widget(root_layout)
+        self.add_widget(scroll)
+
+    def _create_header(self):
+        header = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(60),
+            spacing=dp(10)
+        )
+
+        back_btn = MDIconButton(
+            icon="arrow-left",
+            on_release=self.go_back,
+            theme_text_color="Custom",
+            text_color=(1, 1, 1, 1),
+            icon_size=dp(28)
+        )
+
+        title_box = MDBoxLayout(orientation="vertical", spacing=dp(2))
+
+        title = MDLabel(
+            text="Chọn Bài Kiểm Tra",
+            theme_text_color="Custom",
+            text_color=(1, 1, 1, 1),
+            font_style="H5",
+            bold=True,
+            size_hint_y=None,
+            height=dp(35)
+        )
+
+        subtitle = MDLabel(
+            text="Chọn môn, lớp và đề thi để bắt đầu",
+            theme_text_color="Custom",
+            text_color=(0.7, 0.75, 0.85, 1),
+            font_style="Caption",
+            size_hint_y=None,
+            height=dp(20)
+        )
+
+        title_box.add_widget(title)
+        title_box.add_widget(subtitle)
+
+        header.add_widget(back_btn)
+        header.add_widget(title_box)
+
+        return header
+
+    def _create_department_card(self):
+        card = MDCard(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(12),
+            size_hint_y=None,
+            height=dp(120),
+            radius=[20],
+            md_bg_color=(0.98, 0.98, 0.99, 1),
+            shadow_softness=8,
+            elevation=4
+        )
+
+        label = MDLabel(
+            text="Chọn môn học",
+            theme_text_color="Custom",
+            text_color=(0.15, 0.15, 0.2, 1),
+            font_style="H6",
+            bold=True,
+            size_hint_y=None,
+            height=dp(30)
+        )
+
+        self.department_button = MDRaisedButton(
+            text="Chọn môn học...",
+            md_bg_color=(0.18, 0.38, 0.78, 1),
+            size_hint=(1, None),
+            height=dp(50),
+            elevation=2,
+            on_release=lambda x: self.show_department_menu()
+        )
+        self.department_button.font_size = dp(15)
+
+        card.add_widget(label)
+        card.add_widget(self.department_button)
+
+        return card
+
+    def _create_class_card(self):
+        card = MDCard(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(12),
+            size_hint_y=None,
+            height=dp(120),
+            radius=[20],
+            md_bg_color=(0.98, 0.98, 0.99, 1),
+            shadow_softness=8,
+            elevation=4
+        )
+
+        label = MDLabel(
+            text="Chọn lớp học",
+            theme_text_color="Custom",
+            text_color=(0.15, 0.15, 0.2, 1),
+            font_style="H6",
+            bold=True,
+            size_hint_y=None,
+            height=dp(30)
+        )
+
+        self.class_button = MDRaisedButton(
+            text="Chọn lớp học...",
+            md_bg_color=(0.5, 0.5, 0.55, 1),
+            size_hint=(1, None),
+            height=dp(50),
+            elevation=2,
+            disabled=True,
+            on_release=lambda x: self.show_class_menu()
+        )
+        self.class_button.font_size = dp(15)
+
+        card.add_widget(label)
+        card.add_widget(self.class_button)
+
+        return card
+
+    def _create_exam_card(self):
+        card = MDCard(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(12),
+            size_hint_y=None,
+            height=dp(120),
+            radius=[20],
+            md_bg_color=(0.98, 0.98, 0.99, 1),
+            shadow_softness=8,
+            elevation=4
+        )
+
+        label = MDLabel(
+            text="Chọn đề thi",
+            theme_text_color="Custom",
+            text_color=(0.15, 0.15, 0.2, 1),
+            font_style="H6",
+            bold=True,
+            size_hint_y=None,
+            height=dp(30)
+        )
+
+        self.exam_button = MDRaisedButton(
+            text="Chọn đề thi...",
+            md_bg_color=(0.5, 0.5, 0.55, 1),
+            size_hint=(1, None),
+            height=dp(50),
+            elevation=2,
+            disabled=True,
+            on_release=lambda x: self.show_exam_menu()
+        )
+        self.exam_button.font_size = dp(15)
+
+        card.add_widget(label)
+        card.add_widget(self.exam_button)
+
+        return card
+
+    def _create_info_card(self):
+        card = MDCard(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(10),
+            size_hint_y=None,
+            height=dp(140),
+            radius=[20],
+            md_bg_color=(0.95, 0.97, 1, 1),
+            shadow_softness=6,
+            elevation=2
+        )
+
+        title = MDLabel(
+            text="💡 Hướng dẫn",
+            theme_text_color="Custom",
+            text_color=(0.18, 0.38, 0.78, 1),
+            font_style="Subtitle1",
+            bold=True,
+            size_hint_y=None,
+            height=dp(25)
+        )
+
+        info1 = MDLabel(
+            text="1️⃣ Chọn môn học bạn muốn kiểm tra",
+            theme_text_color="Custom",
+            text_color=(0.3, 0.3, 0.35, 1),
+            font_style="Body2",
+            size_hint_y=None,
+            height=dp(25)
+        )
+
+        info2 = MDLabel(
+            text="2️⃣ Chọn lớp học phù hợp với trình độ",
+            theme_text_color="Custom",
+            text_color=(0.3, 0.3, 0.35, 1),
+            font_style="Body2",
+            size_hint_y=None,
+            height=dp(25)
+        )
+
+        info3 = MDLabel(
+            text="3️⃣ Chọn đề thi và bắt đầu làm bài",
+            theme_text_color="Custom",
+            text_color=(0.3, 0.3, 0.35, 1),
+            font_style="Body2",
+            size_hint_y=None,
+            height=dp(25)
+        )
+
+        card.add_widget(title)
+        card.add_widget(info1)
+        card.add_widget(info2)
+        card.add_widget(info3)
+
+        return card
+
+    def _create_start_button(self):
+        button = MDRaisedButton(
+            text="Bắt đầu làm bài",
+            md_bg_color=(0.2, 0.7, 0.3, 1),
+            size_hint=(1, None),
+            height=dp(55),
+            elevation=4,
+            on_release=lambda x: self.start_exam()
+        )
+        button.font_size = dp(17)
+        return button
 
     def on_enter(self):
         self.load_departments()
 
-    def set_loading(self, loading, message="Đang tải..."):
-        self.is_loading = loading
-        if loading and hasattr(self, 'ids') and 'loading_text' in self.ids:
-            self.ids.loading_text.text = message
+    def show_loading(self, message="Đang tải..."):
+        if self.loading_modal is None:
+            self.loading_modal = ModalView(
+                size_hint=(None, None),
+                size=(dp(140), dp(140)),
+                background_color=(0, 0, 0, 0.6),
+                auto_dismiss=False
+            )
+
+            layout = MDBoxLayout(
+                orientation="vertical",
+                spacing=dp(15),
+                padding=dp(25)
+            )
+
+            self.spinner = MDSpinner(
+                size_hint=(None, None),
+                size=(dp(55), dp(55)),
+                pos_hint={'center_x': 0.5, 'center_y': 0.5},
+                active=True,
+                palette=[
+                    [0.18, 0.38, 0.78, 1],
+                    [0.28, 0.84, 0.60, 1],
+                    [0.89, 0.36, 0.59, 1],
+                    [0.96, 0.76, 0.19, 1],
+                ]
+            )
+
+            self.loading_label = MDLabel(
+                text=message,
+                halign="center",
+                theme_text_color="Custom",
+                text_color=(1, 1, 1, 1),
+                font_style="Body2",
+                bold=True
+            )
+
+            layout.add_widget(self.spinner)
+            layout.add_widget(self.loading_label)
+            self.loading_modal.add_widget(layout)
+
+        self.loading_label.text = message
+        self.loading_modal.open()
+
+    def hide_loading(self):
+        if self.loading_modal:
+            self.loading_modal.dismiss()
 
     def load_departments(self):
-        self.set_loading(True, "Đang tải danh sách môn...")
+        self.show_loading("Đang tải danh sách môn học...")
 
         def _load():
             try:
-                res = requests.get(f"{API_URL}/departments", timeout=5)
+                res = requests.get(f"{API_URL}/departments", timeout=10)
                 if res.status_code == 200:
                     data = res.json()
                     self.departments = data.get('departments', [])
                     print(f"✅ Loaded {len(self.departments)} departments")
                 else:
-                    print(f"❌ Failed to load departments: {res.text}")
                     Clock.schedule_once(
-                        lambda dt: self.show_error_dialog("Lỗi", f"Không tải được danh sách môn: {res.status_code}"))
+                        lambda dt: self.show_error_dialog(
+                            "Lỗi",
+                            f"Không tải được danh sách môn học"
+                        )
+                    )
             except Exception as e:
                 print(f"❌ Error: {e}")
-                Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", f"Lỗi khi tải dữ liệu: {str(e)}"))
+                Clock.schedule_once(
+                    lambda dt: self.show_error_dialog(
+                        "Lỗi kết nối",
+                        f"Không thể kết nối đến server:\n{str(e)}"
+                    )
+                )
             finally:
-                Clock.schedule_once(lambda dt: self.set_loading(False))
+                Clock.schedule_once(lambda dt: self.hide_loading())
 
-        import threading
         threading.Thread(target=_load, daemon=True).start()
 
     def show_department_menu(self):
         if not self.departments:
-            self.show_error_dialog("Thông báo", "Chưa có dữ liệu môn học")
+            self.show_error_dialog("Thông báo", "Chưa có dữ liệu môn học.\nVui lòng thử lại sau.")
             return
 
         menu_items = [
@@ -238,7 +385,7 @@ class ExamSetupScreen(MDScreen):
         ]
 
         self.department_menu = MDDropdownMenu(
-            caller=self.ids.department_button,
+            caller=self.department_button,
             items=menu_items,
             width_mult=4,
         )
@@ -246,45 +393,49 @@ class ExamSetupScreen(MDScreen):
 
     def select_department(self, department):
         self.selected_department_id = department['id_department']
-        self.ids.department_button.text = department['name_department']
+        self.department_button.text = department['name_department']
         self.department_menu.dismiss()
 
         # Reset selections
         self.selected_class_id = 0
         self.selected_exam_id = 0
-        self.ids.class_button.text = 'Chọn lớp...'
-        self.ids.class_button.disabled = False
-        self.ids.exam_button.text = 'Chọn đề thi...'
-        self.ids.exam_button.disabled = True
+        self.class_button.text = 'Chọn lớp học...'
+        self.class_button.disabled = False
+        self.class_button.md_bg_color = (0.18, 0.38, 0.78, 1)
+        self.exam_button.text = 'Chọn đề thi...'
+        self.exam_button.disabled = True
+        self.exam_button.md_bg_color = (0.5, 0.5, 0.55, 1)
 
         # Load classes
         self.load_classes(self.selected_department_id)
 
     def load_classes(self, dept_id):
-        self.set_loading(True, "Đang tải danh sách lớp...")
+        self.show_loading("Đang tải danh sách lớp học...")
 
         def _load():
             try:
-                res = requests.get(f"{API_URL}/departments/{dept_id}/classes", timeout=5)
+                res = requests.get(f"{API_URL}/departments/{dept_id}/classes", timeout=10)
                 if res.status_code == 200:
                     data = res.json()
                     self.classes = data.get('classes', [])
                     print(f"✅ Loaded {len(self.classes)} classes")
                 else:
                     Clock.schedule_once(
-                        lambda dt: self.show_error_dialog("Lỗi", "Không tải được danh sách lớp"))
+                        lambda dt: self.show_error_dialog("Lỗi", "Không tải được danh sách lớp học")
+                    )
             except Exception as e:
                 print(f"❌ Error: {e}")
-                Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", str(e)))
+                Clock.schedule_once(
+                    lambda dt: self.show_error_dialog("Lỗi", str(e))
+                )
             finally:
-                Clock.schedule_once(lambda dt: self.set_loading(False))
+                Clock.schedule_once(lambda dt: self.hide_loading())
 
-        import threading
         threading.Thread(target=_load, daemon=True).start()
 
     def show_class_menu(self):
         if not self.classes:
-            self.show_error_dialog("Thông báo", "Chưa có dữ liệu lớp")
+            self.show_error_dialog("Thông báo", "Chưa có lớp học nào.\nVui lòng chọn môn học khác.")
             return
 
         menu_items = [
@@ -296,7 +447,7 @@ class ExamSetupScreen(MDScreen):
         ]
 
         self.class_menu = MDDropdownMenu(
-            caller=self.ids.class_button,
+            caller=self.class_button,
             items=menu_items,
             width_mult=4,
         )
@@ -304,25 +455,25 @@ class ExamSetupScreen(MDScreen):
 
     def select_class(self, cls):
         self.selected_class_id = cls['id_class']
-        self.ids.class_button.text = cls['class_name']
+        self.class_button.text = cls['class_name']
         self.class_menu.dismiss()
 
         # Reset exam selection
         self.selected_exam_id = 0
-        self.ids.exam_button.text = 'Chọn đề thi...'
-        self.ids.exam_button.disabled = False
+        self.exam_button.text = 'Chọn đề thi...'
+        self.exam_button.disabled = False
+        self.exam_button.md_bg_color = (0.18, 0.38, 0.78, 1)
 
         # Load exams for this class
         self.load_exams(self.selected_class_id)
         print(f"✅ Selected class: {cls['class_name']}")
 
     def load_exams(self, class_id):
-        """Tải danh sách đề thi có sẵn theo lớp"""
-        self.set_loading(True, "Đang tải danh sách đề thi...")
+        self.show_loading("Đang tải danh sách đề thi...")
 
         def _load():
             try:
-                res = requests.get(f"{API_URL}/classes/{class_id}/exams", timeout=5)
+                res = requests.get(f"{API_URL}/classes/{class_id}/exams", timeout=10)
                 if res.status_code == 200:
                     data = res.json()
                     self.exams = data.get('exams', [])
@@ -330,80 +481,84 @@ class ExamSetupScreen(MDScreen):
 
                     if len(self.exams) == 0:
                         Clock.schedule_once(
-                            lambda dt: self.show_error_dialog("Thông báo", "Chưa có đề thi nào cho lớp này"))
+                            lambda dt: self.show_error_dialog(
+                                "Thông báo",
+                                "Chưa có đề thi nào cho lớp này.\nVui lòng chọn lớp khác."
+                            )
+                        )
                 else:
                     Clock.schedule_once(
-                        lambda dt: self.show_error_dialog("Lỗi", "Không tải được danh sách đề thi"))
+                        lambda dt: self.show_error_dialog("Lỗi", "Không tải được danh sách đề thi")
+                    )
             except Exception as e:
                 print(f"❌ Error: {e}")
                 Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", str(e)))
             finally:
-                Clock.schedule_once(lambda dt: self.set_loading(False))
+                Clock.schedule_once(lambda dt: self.hide_loading())
 
-        import threading
         threading.Thread(target=_load, daemon=True).start()
 
     def show_exam_menu(self):
-        """Hiển thị menu chọn đề thi"""
         if not self.exams:
-            self.show_error_dialog("Thông báo", "Chưa có đề thi nào cho lớp này")
+            self.show_error_dialog("Thông báo", "Chưa có đề thi nào.\nVui lòng chọn lớp khác.")
             return
 
         menu_items = [
             {
-                "text": f"{exam['name_ex']} ({exam['total_ques']} câu - {exam['duration']} phút)",
+                "text": f"{exam['name_ex']} - {exam['duration']} phút - {exam['total_ques']} câu",
                 "viewclass": "OneLineListItem",
                 "on_release": lambda x=exam: self.select_exam(x),
             } for exam in self.exams
         ]
 
         self.exam_menu = MDDropdownMenu(
-            caller=self.ids.exam_button,
+            caller=self.exam_button,
             items=menu_items,
             width_mult=5,
         )
         self.exam_menu.open()
 
     def select_exam(self, exam):
-        """Chọn đề thi"""
         self.selected_exam_id = exam['id_ex']
-        self.ids.exam_button.text = f"{exam['name_ex']} ({exam['total_ques']} câu)"
+        self.exam_button.text = f"{exam['name_ex']} ({exam['total_ques']} câu)"
+        self.exam_button.md_bg_color = (0.2, 0.7, 0.3, 1)
         self.exam_menu.dismiss()
         print(f"✅ Selected exam: {exam['name_ex']}")
 
     def start_exam(self):
-        """Bắt đầu làm bài thi đã chọn theo đúng luồng backend"""
         if self.selected_department_id == 0:
-            self.show_error_dialog("Lỗi", "Vui lòng chọn môn học!")
+            self.show_error_dialog("Thiếu thông tin", "Vui lòng chọn môn học!")
             return
 
         if self.selected_class_id == 0:
-            self.show_error_dialog("Lỗi", "Vui lòng chọn lớp!")
+            self.show_error_dialog("Thiếu thông tin", "Vui lòng chọn lớp học!")
             return
 
         if self.selected_exam_id == 0:
-            self.show_error_dialog("Lỗi", "Vui lòng chọn đề thi!")
+            self.show_error_dialog("Thiếu thông tin", "Vui lòng chọn đề thi!")
             return
 
-        self.set_loading(True, "Đang tải đề thi...")
+        self.show_loading("Đang tải đề thi...")
 
         def _load_exam():
             try:
                 token = self.get_token()
                 if not token:
-                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", "Bạn chưa đăng nhập!"))
+                    Clock.schedule_once(
+                        lambda dt: self.show_error_dialog("Lỗi", "Bạn chưa đăng nhập!")
+                    )
                     return
 
                 res = requests.get(
                     f"{API_URL}/exams/{self.selected_exam_id}/detail",
                     headers={"Authorization": f"Bearer {token}"},
-                    timeout=10
+                    timeout=15
                 )
 
                 data = res.json()
 
                 if res.status_code == 200 and data.get("success"):
-                    exam_data = data  # chứa exam + questions
+                    exam_data = data
 
                     def _go(dt):
                         screen = self.manager.get_screen("exam_question")
@@ -418,15 +573,16 @@ class ExamSetupScreen(MDScreen):
 
             except Exception as e:
                 print("❌ Error:", e)
-                Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", str(e)))
+                Clock.schedule_once(
+                    lambda dt: self.show_error_dialog("Lỗi", f"Không thể tải đề thi:\n{str(e)}")
+                )
 
             finally:
-                Clock.schedule_once(lambda dt: self.set_loading(False))
+                Clock.schedule_once(lambda dt: self.hide_loading())
 
-        import threading
         threading.Thread(target=_load_exam, daemon=True).start()
 
-    def go_back(self):
+    def go_back(self, instance=None):
         self.manager.current = 'home'
 
     def get_token(self):
@@ -437,12 +593,23 @@ class ExamSetupScreen(MDScreen):
             if store.exists("auth"):
                 auth_data = store.get("auth")
                 token = auth_data.get("token")
-                if token and len(token.split(".")) == 3:
-                    return token
+
+                if token:
+                    token = token.strip()
+                    parts = token.split(".")
+                    if len(parts) == 3:
+                        print("✅ Token hợp lệ")
+                        return token
+                    else:
+                        print("❌ Token không đúng format JWT")
+                else:
+                    print("❌ Không tìm thấy token")
+            else:
+                print("❌ Chưa đăng nhập")
 
             return None
         except Exception as e:
-            print(f"❌ Error getting token: {e}")
+            print(f"❌ Lỗi khi lấy token: {e}")
             return None
 
     def show_error_dialog(self, title, message):
@@ -452,9 +619,12 @@ class ExamSetupScreen(MDScreen):
         self.dialog = MDDialog(
             title=title,
             text=message,
+            size_hint=(0.85, None),
+            height=dp(220),
             buttons=[
-                MDFlatButton(
-                    text="OK",
+                MDRaisedButton(
+                    text="Đóng",
+                    md_bg_color=(0.5, 0.5, 0.55, 1),
                     on_release=lambda x: self.dialog.dismiss()
                 )
             ]

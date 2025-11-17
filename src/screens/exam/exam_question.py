@@ -91,7 +91,6 @@ Builder.load_string("""
                 on_release: root.confirm_submit()
 """)
 
-
 class ExamQuestionScreen(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -104,23 +103,29 @@ class ExamQuestionScreen(MDScreen):
         self.timer_event = None
         self.dialog = None
         self.question_widgets = []
+        self.duration = 30  # fallback duration
 
     def set_exam(self, exam_data):
-        """Khởi tạo bài thi và load tất cả câu hỏi"""
-        self.exam_data = exam_data
-        self.exam_id = exam_data['id_ex']
-        self.total_questions = exam_data['total_ques']
+        """Thiết lập dữ liệu cho bài thi"""
+        exam_info = exam_data.get("exam", {})
+        self.exam_id = exam_info.get("id_ex")
+        self.exam_name = exam_info.get("name_ex", "Bài thi")
+        self.total_questions = exam_info.get("total_ques") or len(exam_data.get('questions', []))
+        self.duration = exam_info.get("duration", 30)
+        self.questions = exam_data.get("questions", [])
         self.answers = {}
         self.start_time = datetime.now()
+        self.end_time = self.start_time + timedelta(minutes=self.duration)
 
-        # Tính thời gian kết thúc (1 phút/câu)
-        duration_minutes = exam_data['duration']
-        self.end_time = self.start_time + timedelta(minutes=duration_minutes)
+        if not self.questions:
+            self.load_all_questions()
+        else:
+            # Schedule để đảm bảo KV đã build xong
+            Clock.schedule_once(lambda dt: self.display_all_questions({
+                'exam': exam_info,
+                'questions': self.questions
+            }), 0)
 
-        # Load và hiển thị tất cả câu hỏi
-        self.load_all_questions()
-
-        # Bắt đầu đếm ngược
         self.start_timer()
 
     def start_timer(self):
@@ -129,8 +134,8 @@ class ExamQuestionScreen(MDScreen):
         def update_timer(dt):
             now = datetime.now()
             if now >= self.end_time:
-                # Hết giờ - tự động nộp bài
-                self.timer_event.cancel()
+                if self.timer_event:
+                    self.timer_event.cancel()
                 self.ids.timer_label.text = "⏱️ HẾT GIỜ!"
                 self.auto_submit()
             else:
@@ -139,48 +144,50 @@ class ExamQuestionScreen(MDScreen):
                 seconds = int(remaining.total_seconds() % 60)
                 self.ids.timer_label.text = f"⏱️ Thời gian còn lại: {minutes:02d}:{seconds:02d}"
 
-                # Đổi màu cảnh báo khi còn 2 phút
                 if minutes < 2:
                     self.ids.timer_label.text_color = (1, 0, 0, 1)
+                else:
+                    self.ids.timer_label.text_color = (1, 1, 0, 1)
 
         self.timer_event = Clock.schedule_interval(update_timer, 1)
 
     def load_all_questions(self):
-        """Load tất cả câu hỏi của bài thi"""
+        """Lấy câu hỏi từ backend"""
         try:
             token = self.get_token()
+            if not token:
+                self.show_error_dialog("Lỗi", "Token không hợp lệ!")
+                return
+
             res = requests.get(
                 f"{API_URL}/exams/{self.exam_id}/detail",
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=10
             )
-
             data = res.json()
-
             if res.status_code == 200 and data.get('success'):
-                self.display_all_questions(data)
+                self.questions = data.get('questions', [])
+                Clock.schedule_once(lambda dt: self.display_all_questions(data), 0)
             else:
                 self.show_error_dialog("Lỗi", data.get('message', 'Không tải được câu hỏi'))
-
         except Exception as e:
             logging.error(f"Error loading questions: {e}")
             self.show_error_dialog("Lỗi", f"Lỗi khi tải câu hỏi: {str(e)}")
 
     def display_all_questions(self, data):
         """Hiển thị tất cả câu hỏi"""
-        questions = data['questions']
-        exam_info = data['exam']
+        exam_info = data.get('exam', {})
+        questions = data.get('questions', [])
 
-        # Update header
-        self.ids.exam_name_label.text = exam_info['name_ex']
-        self.ids.progress_label.text = f"Tổng số câu: {len(questions)}"
+        self.total_questions = len(questions)
+        if hasattr(self.ids, 'exam_name_label'):
+            self.ids.exam_name_label.text = exam_info.get('name_ex', 'Bài thi')
+            self.ids.progress_label.text = f"Tổng số câu: {self.total_questions}"
 
-        # Clear container
         container = self.ids.questions_container
         container.clear_widgets()
         self.question_widgets = []
 
-        # Display each question
         for idx, question in enumerate(questions):
             question_card = self.create_question_card(question, idx + 1)
             container.add_widget(question_card)
@@ -198,7 +205,6 @@ class ExamQuestionScreen(MDScreen):
             radius=[15, 15, 15, 15]
         )
 
-        # Question header
         header = MDLabel(
             text=f"[b]Câu {question_number}:[/b]",
             markup=True,
@@ -208,9 +214,8 @@ class ExamQuestionScreen(MDScreen):
         )
         card.add_widget(header)
 
-        # Question text
         question_text = MDLabel(
-            text=question['ques_text'],
+            text=question.get('ques_text', ''),
             font_style='Body1',
             size_hint_y=None,
             height=dp(50),
@@ -218,34 +223,29 @@ class ExamQuestionScreen(MDScreen):
         )
         card.add_widget(question_text)
 
-        # Answer options
         for opt in ['a', 'b', 'c', 'd']:
             ans = question.get(f"ans_{opt}")
             if ans:
-                answer_box = MDBoxLayout(
+                answer_box = MDCard(
                     orientation='horizontal',
                     size_hint_y=None,
                     height=dp(40),
-                    spacing=dp(10)
+                    padding=dp(5)
                 )
-
                 checkbox = MDCheckbox(
                     size_hint=(None, None),
                     size=(dp(40), dp(40)),
-                    group=f"q_{question['id_ques']}"
+                    group=f"q_{question.get('id_ques')}"
                 )
-
                 checkbox.bind(
-                    active=lambda cb, val, q_id=question['id_ques'], answer=ans:
-                    self.on_answer_selected(q_id, answer, val)
+                    active=lambda cb, val, qid=question.get('id_ques'), answer=ans:
+                    self.on_answer_selected(qid, answer, val)
                 )
-
                 label = MDLabel(
                     text=f"[b]{opt.upper()}.[/b] {ans}",
                     markup=True,
                     adaptive_height=True
                 )
-
                 answer_box.add_widget(checkbox)
                 answer_box.add_widget(label)
                 card.add_widget(answer_box)
@@ -253,22 +253,22 @@ class ExamQuestionScreen(MDScreen):
         return card
 
     def on_answer_selected(self, question_id, answer, is_active):
-        """Lưu câu trả lời"""
         if is_active:
             self.answers[question_id] = answer
+            answered = len(self.answers)
+            if hasattr(self.ids, 'progress_label'):
+                self.ids.progress_label.text = f"Tổng số câu: {answered}/{self.total_questions}"
             print(f"✅ Answered Q{question_id}: {answer}")
 
     def scroll_to_top(self):
-        """Scroll lên đầu trang"""
         self.ids.scroll_view.scroll_y = 1
 
     def confirm_submit(self):
-        """Xác nhận nộp bài"""
         answered = len(self.answers)
         if answered < self.total_questions:
-            message = f"Bạn mới trả lời {answered}/{self.total_questions} câu.\\n\\nBạn có chắc muốn nộp bài?"
+            message = f"Bạn mới trả lời {answered}/{self.total_questions} câu.\nBạn có chắc muốn nộp bài?"
         else:
-            message = f"Bạn đã hoàn thành {answered}/{self.total_questions} câu.\\n\\nNộp bài ngay?"
+            message = f"Bạn đã hoàn thành {answered}/{self.total_questions} câu.\nNộp bài ngay?"
 
         if self.dialog:
             self.dialog.dismiss()
@@ -291,54 +291,67 @@ class ExamQuestionScreen(MDScreen):
         self.dialog.open()
 
     def auto_submit(self):
-        """Tự động nộp bài khi hết giờ"""
         self.show_error_dialog("Hết giờ", "Thời gian làm bài đã hết. Hệ thống sẽ tự động nộp bài.")
         Clock.schedule_once(lambda dt: self.submit_exam(), 2)
 
     def submit_exam(self):
-        """Nộp bài thi"""
         if self.dialog:
             self.dialog.dismiss()
 
-        # Hủy timer
         if self.timer_event:
             self.timer_event.cancel()
 
         try:
             token = self.get_token()
+            if not token:
+                self.show_error_dialog("Lỗi 401", "Bạn chưa đăng nhập hoặc token không hợp lệ.")
+                return
+
+            if not self.exam_id:
+                self.show_error_dialog("Lỗi", "Không có thông tin đề thi")
+                return
 
             answers_list = [
                 {"id_ques": qid, "answer": ans}
                 for qid, ans in self.answers.items()
             ]
 
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+
             res = requests.post(
-                f"{API_URL}/exam/submit",
+                f"{API_URL}/exams/{self.exam_id}/submit",
                 json={
-                    "exam_id": self.exam_id,
                     "answers": answers_list,
                     "start_time": self.start_time.isoformat()
                 },
-                headers={"Authorization": f"Bearer {token}"},
+                headers=headers,
                 timeout=10
             )
 
-            data = res.json()
+            try:
+                data = res.json()
+            except Exception:
+                data = {"success": False, "message": "Backend không trả dữ liệu hợp lệ"}
 
             if res.status_code == 200 and data.get('success'):
                 result = data.get('result')
                 result_screen = self.manager.get_screen('exam_result')
                 result_screen.display_result(result)
                 self.manager.current = 'exam_result'
+            elif res.status_code == 401:
+                self.show_error_dialog("Lỗi 401", "Token hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.")
             else:
-                self.show_error_dialog("Lỗi", data.get('message', 'Nộp bài thất bại'))
+                msg = data.get('message', f"Nộp bài thất bại ({res.status_code})")
+                self.show_error_dialog("Lỗi", msg)
 
         except Exception as e:
             logging.error(f"Error submitting exam: {e}")
             self.show_error_dialog("Lỗi", f"Lỗi khi nộp bài: {str(e)}")
 
     def on_leave(self):
-        """Cleanup khi rời màn hình"""
         if self.timer_event:
             self.timer_event.cancel()
 
@@ -346,13 +359,9 @@ class ExamQuestionScreen(MDScreen):
         try:
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
-
             if store.exists('auth'):
                 auth_data = store.get('auth')
-                token = auth_data.get('token')
-                if token:
-                    return token
-
+                return auth_data.get('token')
             return None
         except Exception as e:
             print(f"❌ Error getting token: {e}")
@@ -361,15 +370,9 @@ class ExamQuestionScreen(MDScreen):
     def show_error_dialog(self, title, message):
         if self.dialog:
             self.dialog.dismiss()
-
         self.dialog = MDDialog(
             title=title,
             text=message,
-            buttons=[
-                MDFlatButton(
-                    text="OK",
-                    on_release=lambda x: self.dialog.dismiss()
-                )
-            ]
+            buttons=[MDFlatButton(text="OK", on_release=lambda x: self.dialog.dismiss())]
         )
         self.dialog.open()

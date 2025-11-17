@@ -1,4 +1,5 @@
 import requests
+import logging
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.dialog import MDDialog
@@ -8,11 +9,10 @@ from kivy.lang import Builder
 from kivy.metrics import dp
 from kivy.properties import BooleanProperty
 from kivy.clock import Clock
-import logging
 
 API_URL = "https://backend-onlinesystem.onrender.com/api/exam"
 
-Builder.load_string("""
+KV = """
 <ExamDetailScreen>:
     MDBoxLayout:
         orientation: 'vertical'
@@ -40,7 +40,92 @@ Builder.load_string("""
                 size_hint_x: None
                 width: dp(50)
 
+        # Loading Overlay
+        MDCard:
+            id: loading_overlay
+            size_hint: 1, 1
+            md_bg_color: 0, 0, 0, 0.7
+            elevation: 10
+            radius: [15, 15, 15, 15]
+            opacity: 1 if root.is_loading else 0
+            disabled: not root.is_loading
+
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(20)
+                padding: dp(40)
+                pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+                size_hint: None, None
+                size: dp(200), dp(200)
+
+                MDSpinner:
+                    size_hint: None, None
+                    size: dp(80), dp(80)
+                    pos_hint: {'center_x': 0.5}
+                    active: root.is_loading
+                    color: 1, 1, 1, 1
+
+                MDLabel:
+                    text: 'Đang tải...'
+                    halign: 'center'
+                    font_style: 'H6'
+                    theme_text_color: 'Custom'
+                    text_color: 1, 1, 1, 1
+
+        # Summary Card
+        MDCard:
+            id: summary_card
+            orientation: 'vertical'
+            padding: dp(15)
+            spacing: dp(8)
+            size_hint_y: None
+            height: dp(140)
+            elevation: 3
+            md_bg_color: app.theme_cls.primary_color
+            radius: [15, 15, 15, 15]
+            opacity: 0 if root.is_loading else 1
+
+            MDLabel:
+                id: summary_title
+                text: ''
+                font_style: 'H6'
+                bold: True
+                theme_text_color: 'Custom'
+                text_color: 1, 1, 1, 1
+                size_hint_y: None
+                height: dp(30)
+
+            MDLabel:
+                id: summary_score
+                text: ''
+                font_style: 'H5'
+                theme_text_color: 'Custom'
+                text_color: 1, 1, 1, 1
+                size_hint_y: None
+                height: dp(35)
+
+            MDLabel:
+                id: summary_correct
+                text: ''
+                font_style: 'Subtitle1'
+                theme_text_color: 'Custom'
+                text_color: 1, 1, 1, 0.95
+                size_hint_y: None
+                height: dp(25)
+
+            MDLabel:
+                id: summary_date
+                text: ''
+                font_style: 'Caption'
+                theme_text_color: 'Custom'
+                text_color: 1, 1, 1, 0.9
+                size_hint_y: None
+                height: dp(20)
+
+        # Detail list
         ScrollView:
+            opacity: 0 if root.is_loading else 1
+
             MDBoxLayout:
                 id: detail_layout
                 orientation: 'vertical'
@@ -48,7 +133,9 @@ Builder.load_string("""
                 padding: dp(5)
                 size_hint_y: None
                 height: self.minimum_height
-""")
+"""
+
+Builder.load_string(KV)
 
 
 class ExamDetailScreen(MDScreen):
@@ -59,128 +146,189 @@ class ExamDetailScreen(MDScreen):
         self.dialog = None
         self.result_data = None
 
-    def load_result_detail(self, result_id):
+    def load_result_detail(self, result_id, from_screen='exam_result'):
+        """Load chi tiết bài làm từ API"""
+        self.from_screen = from_screen
         self.is_loading = True
 
         def _load():
             try:
                 token = self.get_token()
                 if not token:
-                    raise Exception("Chưa đăng nhập")
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", "Bạn chưa đăng nhập")), None
+                    return
 
                 res = requests.get(
                     f"{API_URL}/result/{result_id}/detail",
                     headers={"Authorization": f"Bearer {token}"},
                     timeout=10
                 )
+                if res.status_code != 200:
+                    try:
+                        msg = res.json().get('message', res.text)
+                    except Exception:
+                        msg = res.text
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", msg))
+                    return
+
                 data = res.json()
-                if res.status_code == 200 and data.get("success"):
-                    result = data.get("result")
-                    answers = data.get("answers", [])
-                    Clock.schedule_once(lambda dt: self.display_detail(result, answers))
-                else:
-                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", data.get("message", "Không tải được chi tiết")))
+                if not data.get('success'):
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", data.get('message', 'Lỗi server')))
+                    return
+
+                self.result_data = data.get('result')
+                answers = data.get('answers', [])
+                Clock.schedule_once(lambda dt: self.display_detail(self.result_data, answers))
+
             except Exception as e:
                 logging.error(f"Error loading detail: {e}")
                 Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", str(e)))
             finally:
-                Clock.schedule_once(lambda dt: setattr(self, "is_loading", False))
+                Clock.schedule_once(lambda dt: setattr(self, 'is_loading', False))
 
         import threading
         threading.Thread(target=_load, daemon=True).start()
 
     def display_detail(self, result, answers):
-        self.result_data = result
-        layout = self.ids.detail_layout
-        layout.clear_widgets()
+        """Hiển thị chi tiết bài làm"""
+        # Update summary
+        self.ids.summary_title.text = result.get('exam_cat', 'Kết quả')
+        self.ids.summary_score.text = f"🎯 Điểm: {result.get('score', 0)}/100"
+        # some DBs store total_questions under different key; try multiple
+        total_q = result.get('total_questions') or result.get('total_ques') or result.get('total_ques', 0)
+        self.ids.summary_correct.text = f"✅ Đúng: {result.get('total_correct', 0)}/{total_q}"
+
+        try:
+            date_str = str(result.get('completed_time', ''))[:19]
+            self.ids.summary_date.text = f"📅 {date_str}"
+        except Exception:
+            self.ids.summary_date.text = "📅 N/A"
+
+        # Display answer details
+        detail_layout = self.ids.detail_layout
+        detail_layout.clear_widgets()
+
+        for idx, answer in enumerate(answers):
+            card = self.create_answer_card(answer, idx + 1)
+            detail_layout.add_widget(card)
+
+    def create_answer_card(self, answer, question_number):
+        """Tạo card hiển thị chi tiết từng câu trả lời"""
+        is_correct = bool(answer.get('is_correct'))
+
+        if is_correct:
+            bg_color = [0.2, 0.8, 0.2, 0.12]
+            border_color = [0.2, 0.8, 0.2, 1]
+            icon = "✅"
+        else:
+            bg_color = [0.95, 0.85, 0.85, 1]
+            border_color = [0.8, 0.2, 0.2, 1]
+            icon = "❌"
+
+        card = MDCard(
+            orientation='vertical',
+            padding=dp(12),
+            spacing=dp(8),
+            size_hint_y=None,
+            elevation=3,
+            radius=[12, 12, 12, 12],
+            md_bg_color=bg_color
+        )
 
         header = MDLabel(
-            text=f"📖 {result.get('exam_name', 'Đề thi')} - Điểm: {result.get('score',0)}/100",
+            text=f"{icon} [b]Câu {question_number}:[/b]",
+            markup=True,
             font_style='H6',
-            bold=True,
             size_hint_y=None,
-            height=dp(30)
+            height=dp(28)
         )
-        layout.add_widget(header)
+        card.add_widget(header)
 
-        correct_label = MDLabel(
-            text=f"Số câu đúng: {result.get('total_correct',0)}/{result.get('total_questions',0)}",
-            font_style='Subtitle1',
+        question_text = MDLabel(
+            text=answer.get('ques_text', ''),
+            font_style='Body1',
             size_hint_y=None,
-            height=dp(25)
+            adaptive_height=True
         )
-        layout.add_widget(correct_label)
+        card.add_widget(question_text)
 
-        # Chi tiết từng câu
-        for idx, ans in enumerate(answers):
-            is_correct = ans.get('user_answer') == ans.get('correct_ans')
-            bg_color = [0.2,0.8,0.2,0.15] if is_correct else [0.8,0.2,0.2,0.15]
-            border_color = [0.2,0.8,0.2,1] if is_correct else [0.8,0.2,0.2,1]
-            icon = "Đúng" if is_correct else "Sai"
+        user_answer_label = MDLabel(
+            text=f"[b]Câu trả lời của bạn:[/b] {answer.get('answer', 'Chưa trả lời')}",
+            markup=True,
+            font_style='Body2',
+            size_hint_y=None,
+            height=dp(26),
+            theme_text_color='Custom',
+            text_color=border_color
+        )
+        card.add_widget(user_answer_label)
 
-            card = MDCard(
-                orientation='vertical',
-                padding=dp(15),
-                spacing=dp(10),
-                size_hint_y=None,
-                elevation=3,
-                radius=[15]*4,
-                md_bg_color=bg_color
-            )
-
-            card.add_widget(MDLabel(
-                text=f"{icon} [b]Câu {idx+1}:[/b]",
-                markup=True,
-                font_style='H6',
-                size_hint_y=None,
-                height=dp(30)
-            ))
-            card.add_widget(MDLabel(
-                text=ans.get('ques_text',''),
-                font_style='Body1',
-                size_hint_y=None,
-                adaptive_height=True
-            ))
-            card.add_widget(MDLabel(
-                text=f"[b]Câu trả lời của bạn:[/b] {ans.get('user_answer','Chưa trả lời')}",
+        if not is_correct:
+            correct_answer_label = MDLabel(
+                text=f"[b]Đáp án đúng:[/b] {answer.get('correct_ans', '')}",
                 markup=True,
                 font_style='Body2',
                 size_hint_y=None,
-                height=dp(25),
+                height=dp(26),
                 theme_text_color='Custom',
-                text_color=border_color
-            ))
-            if not is_correct:
-                card.add_widget(MDLabel(
-                    text=f"[b]Đáp án đúng:[/b] {ans.get('correct_ans')}",
-                    markup=True,
-                    font_style='Body2',
-                    size_hint_y=None,
-                    height=dp(25),
-                    theme_text_color='Custom',
-                    text_color=[0.2,0.8,0.2,1]
-                ))
-            layout.add_widget(card)
+                text_color=[0.2, 0.8, 0.2, 1]
+            )
+            card.add_widget(correct_answer_label)
+
+        if answer.get('explanation'):
+            explanation_label = MDLabel(
+                text=f"[b]💡 Giải thích:[/b] {answer.get('explanation')}",
+                markup=True,
+                font_style='Caption',
+                size_hint_y=None,
+                adaptive_height=True
+            )
+            card.add_widget(explanation_label)
+
+        # compute height (rough)
+        h = dp(40) + dp(30)
+        if not is_correct:
+            h += dp(28)
+        if answer.get('explanation'):
+            h += dp(50)
+        card.height = h + dp(20)
+        return card
+
+    def go_back(self):
+        """Quay lại màn hình kết quả hoặc lịch sử"""
+        if getattr(self, 'from_screen', '') == 'exam_history':
+            self.manager.current = 'exam_history'
+        else:
+            self.manager.current = 'exam_result'
 
     def get_token(self):
+        """Lấy token từ JsonStore (nhiều fallback)"""
         try:
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
-            if store.exists('auth'):
-                return store.get('auth').get('token')
-            return None
-        except:
-            return None
 
-    def go_back(self):
-        self.manager.current = 'exam_history'
+            # common locations
+            for key in ('auth', 'token', 'user'):
+                if store.exists(key):
+                    d = store.get(key)
+                    # d có thể là dict hoặc chứa token trực tiếp
+                    token = d.get('token') or d.get('access_token') or d.get('auth') if isinstance(d, dict) else d
+                    if token:
+                        return token
+
+            return None
+        except Exception as e:
+            logging.error(f"Error getting token: {e}")
+            return None
 
     def show_error_dialog(self, title, message):
         if self.dialog:
             self.dialog.dismiss()
         self.dialog = MDDialog(
             title=title,
-            text=message,
-            buttons=[MDFlatButton(text="OK", on_release=lambda x: self.dialog.dismiss())]
+            text=str(message),
+            buttons=[
+                MDFlatButton(text="OK", on_release=lambda x: self.dialog.dismiss())
+            ]
         )
         self.dialog.open()
