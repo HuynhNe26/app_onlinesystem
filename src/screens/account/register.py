@@ -88,8 +88,8 @@ class RegisterScreen(Screen):
             elevation=6
         )
 
-        self.full_name = self._create_text_field("👤 Họ và tên đầy đủ")
-        self.email = self._create_text_field("📧 Địa chỉ Email")
+        self.full_name = self._create_text_field("Họ và tên đầy đủ")
+        self.email = self._create_text_field("Địa chỉ Email")
 
         card.add_widget(self.full_name)
         card.add_widget(self.email)
@@ -138,7 +138,7 @@ class RegisterScreen(Screen):
         container = MDBoxLayout(orientation="vertical", size_hint_y=None, height=dp(85), spacing=dp(10))
 
         label = MDLabel(
-            text="⚥ Giới tính",
+            text="Giới tính",
             theme_text_color="Custom",
             text_color=(0.15, 0.15, 0.2, 1),
             font_style="Subtitle1",
@@ -149,8 +149,8 @@ class RegisterScreen(Screen):
 
         gender_box = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(50), spacing=dp(40))
 
-        self.gender_male = self._create_gender_checkbox("♂ Nam", gender_box)
-        self.gender_female = self._create_gender_checkbox("♀ Nữ", gender_box)
+        self.gender_male = self._create_gender_checkbox("Nam", gender_box)
+        self.gender_female = self._create_gender_checkbox("Nữ", gender_box)
 
         container.add_widget(label)
         container.add_widget(gender_box)
@@ -195,7 +195,7 @@ class RegisterScreen(Screen):
 
     def _create_date_field(self):
         date_box = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(56))
-        self.birth_date = self._create_text_field("🎂 Ngày sinh (dd/mm/yyyy)", readonly=True)
+        self.birth_date = self._create_text_field("Ngày sinh (dd/mm/yyyy)", readonly=True)
         self.birth_date.size_hint_x = 0.88
         date_btn = MDIconButton(
             icon="calendar",
@@ -210,7 +210,7 @@ class RegisterScreen(Screen):
 
     def _create_password_field(self):
         password_box = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(56))
-        self.password = self._create_text_field("🔒 Mật khẩu", password=True)
+        self.password = self._create_text_field("Mật khẩu", password=True)
         self.password.size_hint_x = 0.88
         self.show_pass_btn = MDIconButton(
             icon="eye-off",
@@ -225,7 +225,7 @@ class RegisterScreen(Screen):
 
     def _create_confirm_password_field(self):
         confirm_box = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(56))
-        self.confirm = self._create_text_field("🔐 Xác nhận mật khẩu", password=True)
+        self.confirm = self._create_text_field("Xác nhận mật khẩu", password=True)
         self.confirm.size_hint_x = 0.88
         self.show_confirm_btn = MDIconButton(
             icon="eye-off",

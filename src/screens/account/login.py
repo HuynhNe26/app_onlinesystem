@@ -219,7 +219,7 @@ class LoginScreen(Screen):
             height=dp(56)
         )
 
-        self.password = self._create_text_field("🔒 Mật khẩu")
+        self.password = self._create_text_field("Mật khẩu")
         self.password.password = True
         self.password.size_hint_x = 0.88
 
@@ -279,7 +279,7 @@ class LoginScreen(Screen):
 
     def forgot_password(self, instance):
         self.show_dialog(
-            "🔐 Quên mật khẩu",
+            "Quên mật khẩu",
             "Tính năng này đang được phát triển.\nVui lòng liên hệ admin để được hỗ trợ."
         )
 

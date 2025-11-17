@@ -93,8 +93,9 @@ class HomeScreen(Screen):
         try:
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
-            if store.exists('user'):
-                self.user_data = store.get('user')
+            if store.exists('auth'):
+                auth= store.get('auth')
+                self.user_data = auth.get('user')
                 self.update_user_card()
         except Exception as e:
             print(f"Lỗi load user data: {e}")
@@ -192,7 +193,7 @@ class HomeScreen(Screen):
         btn_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=None, height=50)
 
         btn_test = Button(
-            text="🧩 Kiểm tra",
+            text="Kiểm tra",
             background_color=(0.2, 0.6, 1, 1)
         )
         btn_test.bind(on_press=self.goto_test)
