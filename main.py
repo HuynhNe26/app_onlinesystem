@@ -20,6 +20,8 @@ from src.screens.exam.exam_result import ExamResultScreen
 from src.screens.exam.exam_history import ExamHistoryScreen
 from src.screens.exam.exam_detail import ExamDetailScreen
 from src.components.navigation import NavigationDrawer
+from src.screens.package.payment_success import PaymentSuccessScreen
+
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -56,6 +58,7 @@ class EducationPlus(MDApp):
                 (ExamDetailScreen, 'exam_detail'),
                 (PackageScreen, 'package'),
                 (PaymentScreen, 'payment'),
+                (PaymentSuccessScreen, 'payment_success'),
                 (Error404Screen, 'error_404')
             ]
 
