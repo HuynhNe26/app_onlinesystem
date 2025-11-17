@@ -302,7 +302,6 @@ class ExamDetailScreen(MDScreen):
             self.manager.current = 'exam_result'
 
     def get_token(self):
-        """Lấy token từ JsonStore (nhiều fallback)"""
         try:
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
