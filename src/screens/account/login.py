@@ -9,7 +9,6 @@ from kivymd.uix.dialog import MDDialog
 from kivymd.uix.spinner import MDSpinner
 from kivy.uix.modalview import ModalView
 from kivy.uix.image import Image
-from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp
 from kivy.clock import Clock
 import requests
@@ -20,7 +19,7 @@ import threading
 class LoginScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.md_bg_color = (0.03, 0.05, 0.12, 1)  # Dark background
+        self.md_bg_color = (0.05, 0.08, 0.16, 1)
         self.loading_modal = None
         self._build_ui()
 
@@ -28,11 +27,9 @@ class LoginScreen(Screen):
         scroll = MDScrollView(size_hint=(1, 1))
         root_layout = self._create_root_layout()
 
-        root_layout.add_widget(MDBoxLayout(size_hint_y=None, height=dp(50)))
         root_layout.add_widget(self._create_header())
         root_layout.add_widget(self._create_form_card())
         root_layout.add_widget(self._create_bottom_nav())
-        root_layout.add_widget(MDBoxLayout(size_hint_y=None, height=dp(40)))
 
         scroll.add_widget(root_layout)
         self.add_widget(scroll)
@@ -40,7 +37,7 @@ class LoginScreen(Screen):
     def _create_root_layout(self):
         layout = MDBoxLayout(
             orientation="vertical",
-            padding=(dp(10), 0),
+            padding=dp(20),
             spacing=dp(25),
             size_hint_y=None
         )
@@ -51,11 +48,18 @@ class LoginScreen(Screen):
         header = MDBoxLayout(
             orientation="vertical",
             size_hint_y=None,
-            height=dp(20),
-            spacing=dp(10)
+            height=dp(180),
+            spacing=dp(15)
         )
 
-        # Title with gradient effect
+        # Logo
+        logo = Image(
+            source="src/assets/logo.png",
+            size_hint=(None, None),
+            size=(dp(100), dp(100)),
+            pos_hint={"center_x": 0.5}
+        )
+
         title = MDLabel(
             text="Đăng Nhập",
             halign="center",
@@ -67,250 +71,211 @@ class LoginScreen(Screen):
             height=dp(45)
         )
 
+        subtitle = MDLabel(
+            text="Chào mừng bạn trở lại!",
+            halign="center",
+            theme_text_color="Custom",
+            text_color=(0.7, 0.75, 0.85, 1),
+            font_style="H6",
+            size_hint_y=None,
+            height=dp(30)
+        )
+
+        header.add_widget(logo)
         header.add_widget(title)
+        header.add_widget(subtitle)
         return header
 
     def _create_form_card(self):
         card = MDCard(
             orientation="vertical",
-            padding=dp(20),
-            spacing=dp(22),
+            padding=dp(30),
+            spacing=dp(20),
             size_hint=(1, None),
-            height=dp(450),
-            radius=[20],
-            md_bg_color=(1, 1, 1, 1),
+            height=dp(380),
+            radius=[30],
+            md_bg_color=(0.98, 0.98, 0.99, 1),
             shadow_softness=12,
             shadow_offset=(0, 4),
-            elevation=10
+            elevation=6
         )
 
         # Email field
-        email_box = self._create_input_group("Email", "email")
-        card.add_widget(email_box)
+        self.email = self._create_text_field("Email")
+        card.add_widget(self.email)
 
         # Password field
-        password_box = self._create_input_group("Mật khẩu", "password")
-        card.add_widget(password_box)
+        card.add_widget(self._create_password_field())
 
-        # Forgot password
-        forgot_container = MDBoxLayout(
+        # Forgot password link
+        forgot_box = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None,
             height=dp(30)
         )
-
         forgot_btn = MDFlatButton(
             text="Quên mật khẩu?",
-            text_color=(0.2, 0.45, 0.85, 1),
+            text_color=(0.29, 0.56, 0.89, 1),
             pos_hint={"right": 1},
             on_release=self.forgot_password
         )
-        forgot_btn.font_size = dp(14)
+        forgot_btn.font_size = dp(13)
+        forgot_box.add_widget(forgot_btn)
+        card.add_widget(forgot_box)
 
-        forgot_container.add_widget(MDBoxLayout())
-        forgot_container.add_widget(forgot_btn)
-        card.add_widget(forgot_container)
-
-        # Login button
+        # Login button with gradient effect
         login_btn = MDRaisedButton(
             text="Đăng nhập",
-            md_bg_color=(0.2, 0.45, 0.85, 1),
+            md_bg_color=(0.18, 0.38, 0.78, 1),
             size_hint=(1, None),
-            height=dp(54),
-            elevation=3,
+            height=dp(52),
+            elevation=4,
             on_release=self.login
         )
         login_btn.font_size = dp(16)
-        login_btn.bold = True
         card.add_widget(login_btn)
 
-        # Divider
-        card.add_widget(self._create_divider())
-
-        # Google button
-        google_btn = self._create_google_button()
-        card.add_widget(google_btn)
-
-        return card
-
-    def _create_input_group(self, label_text, field_type):
-        container = MDBoxLayout(
-            orientation="vertical",
-            size_hint_y=None,
-            height=dp(75),
-            spacing=dp(8)
-        )
-
-        # Label
-        label = MDLabel(
-            text=label_text,
-            theme_text_color="Custom",
-            text_color=(1, 1, 1, 1),
-            font_style="Body2",
-            bold=True,
-            size_hint_y=None,
-            height=dp(20)
-        )
-        label.font_size = dp(14)
-
-        # Input field
-        if field_type == "email":
-            self.email = MDTextField(
-                mode="rectangle",
-                line_color_normal=(0.7, 0.7, 0.75, 1),
-                line_color_focus=(0.2, 0.45, 0.85, 1),
-                text_color_normal=(1, 1, 1, 1),
-                fill_color_normal=(1, 1, 1, 1),
-                fill_color_focus=(1, 1, 1, 1),
-                cursor_color=(0.2, 0.45, 0.85, 1),
-                size_hint_y=None,
-                height=dp(40)
-            )
-            self.email.font_size = dp(15)
-            container.add_widget(label)
-            container.add_widget(self.email)
-        else:
-            # Password with toggle
-            input_box = MDBoxLayout(
-                orientation="horizontal",
-                size_hint_y=None,
-                height=dp(55),
-                spacing=0
-            )
-
-            self.password = MDTextField(
-                password=True,
-                mode="rectangle",
-                line_color_normal=(0.7, 0.7, 0.75, 1),
-                line_color_focus=(0.2, 0.45, 0.85, 1),
-                text_color_normal=(1, 1, 1, 1),
-                fill_color_normal=(1, 1, 1, 1),
-                fill_color_focus=(1, 1, 1, 1),
-                cursor_color=(0.2, 0.45, 0.85, 1),
-                size_hint_y=None,
-                height=dp(40)
-            )
-            self.password.font_size = dp(15)
-            self.password.size_hint_x = 0.88
-
-            self.show_pass_btn = MDIconButton(
-                icon="eye-off",
-                on_release=self.toggle_password,
-                theme_text_color="Custom",
-                text_color=(0.5, 0.5, 0.55, 1),
-                icon_size=dp(22)
-            )
-
-            input_box.add_widget(self.password)
-            input_box.add_widget(self.show_pass_btn)
-
-            container.add_widget(label)
-            container.add_widget(input_box)
-
-        return container
-
-    def _create_divider(self):
+        # Quick login options
         divider_box = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None,
             height=dp(30),
-            spacing=dp(12)
+            spacing=dp(10)
         )
 
-        line1 = MDBoxLayout(size_hint_y=None, height=dp(1))
-        line1.md_bg_color = (0.85, 0.85, 0.88, 1)
+        line1 = MDBoxLayout(size_hint_x=0.4, size_hint_y=None, height=dp(1))
+        line1.md_bg_color = (0.7, 0.7, 0.7, 0.3)
 
         or_label = MDLabel(
             text="hoặc",
             halign="center",
             theme_text_color="Custom",
-            text_color=(0.5, 0.5, 0.55, 1),
+            text_color=(0.5, 0.5, 0.5, 1),
             font_style="Caption",
-            size_hint_x=None,
-            width=dp(50)
+            size_hint_x=0.2
         )
 
-        line2 = MDBoxLayout(size_hint_y=None, height=dp(1))
-        line2.md_bg_color = (0.85, 0.85, 0.88, 1)
+        line2 = MDBoxLayout(size_hint_x=0.4, size_hint_y=None, height=dp(1))
+        line2.md_bg_color = (0.7, 0.7, 0.7, 0.3)
 
         divider_box.add_widget(line1)
         divider_box.add_widget(or_label)
         divider_box.add_widget(line2)
+        card.add_widget(divider_box)
 
-        return divider_box
+        # Social login buttons
+        social_box = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(45),
+            spacing=dp(15)
+        )
 
-    def _create_google_button(self):
         google_btn = MDRaisedButton(
-            text="  Tiếp tục với Google",
-            md_bg_color=(1, 1, 1, 1),
-            text_color=(0.25, 0.25, 0.3, 1),
-            size_hint=(1, None),
-            height=dp(52),
+            text="Google",
+            md_bg_color=(0.95, 0.95, 0.95, 1),
+            text_color=(0.2, 0.2, 0.2, 1),
+            size_hint_x=0.5,
             elevation=2
         )
-        google_btn.font_size = dp(15)
 
-        # Add border effect
-        with google_btn.canvas.before:
-            Color(0.85, 0.85, 0.88, 1)
-            google_btn.border_rect = RoundedRectangle(
-                pos=google_btn.pos,
-                size=google_btn.size,
-                radius=[google_btn.height / 2]
-            )
-
-        def update_border(*args):
-            google_btn.border_rect.pos = google_btn.pos
-            google_btn.border_rect.size = google_btn.size
-
-        google_btn.bind(pos=update_border, size=update_border)
-
-        return google_btn
-
-    def _create_bottom_nav(self):
-        bottom_container = MDBoxLayout(
-            orientation="vertical",
-            size_hint_y=None,
-            height=dp(20),
-            padding=(0, dp(20), 0, 0)
+        facebook_btn = MDRaisedButton(
+            text="Facebook",
+            md_bg_color=(0.95, 0.95, 0.95, 1),
+            text_color=(0.2, 0.2, 0.2, 1),
+            size_hint_x=0.5,
+            elevation=2
         )
 
+        social_box.add_widget(google_btn)
+        social_box.add_widget(facebook_btn)
+        card.add_widget(social_box)
+
+        return card
+
+    def _create_text_field(self, hint):
+        field = MDTextField(
+            hint_text=hint,
+            mode="rectangle",
+            line_color_normal=(0.6, 0.65, 0.7, 1),
+            line_color_focus=(0.18, 0.38, 0.78, 1),
+            hint_text_color_normal=(0.5, 0.5, 0.55, 1),
+            hint_text_color_focus=(0.3, 0.3, 0.35, 1),
+            text_color_normal=(0.1, 0.1, 0.15, 1),
+            text_color_focus=(0, 0, 0.05, 1),
+            fill_color_normal=(0.96, 0.97, 0.98, 1),
+            fill_color_focus=(1, 1, 1, 1),
+            cursor_color=(0.18, 0.38, 0.78, 1),
+            size_hint_y=None,
+            height=dp(56)
+        )
+        field.font_size = dp(15)
+        return field
+
+    def _create_password_field(self):
+        password_box = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(56)
+        )
+
+        self.password = self._create_text_field("Mật khẩu")
+        self.password.password = True
+        self.password.size_hint_x = 0.88
+
+        self.show_pass_btn = MDIconButton(
+            icon="eye-off",
+            on_release=self.toggle_password,
+            theme_text_color="Custom",
+            text_color=(0.5, 0.5, 0.55, 1),
+            icon_size=dp(26)
+        )
+
+        password_box.add_widget(self.password)
+        password_box.add_widget(self.show_pass_btn)
+        return password_box
+
+    def _create_bottom_nav(self):
         bottom_box = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None,
-            height=dp(30),
+            height=dp(50),
             spacing=dp(5)
         )
 
-        label = MDLabel(
-            text="Chưa có tài khoản?",
+        label1 = MDLabel(
+            text="Chưa có tài khoản? ",
             theme_text_color="Custom",
-            text_color=(0.8, 0.82, 0.87, 1),
+            text_color=(0.75, 0.77, 0.82, 1),
             font_style="Body2",
             size_hint_x=None,
             width=dp(140),
             halign="right"
         )
-        label.font_size = dp(15)
 
-        register_btn = MDFlatButton(
+        btn = MDFlatButton(
             text="Đăng ký ngay",
-            text_color=(0.3, 0.6, 1, 1),
+            text_color=(0.29, 0.56, 0.89, 1),
             on_release=lambda x: setattr(self.manager, 'current', 'register')
         )
-        register_btn.font_size = dp(15)
-        register_btn.bold = True
+        btn.font_size = dp(15)
 
-        bottom_box.add_widget(label)
-        bottom_box.add_widget(register_btn)
-        bottom_container.add_widget(bottom_box)
+        bottom_box.add_widget(label1)
+        bottom_box.add_widget(btn)
 
-        return bottom_container
+        wrapper = MDBoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(50)
+        )
+        wrapper.add_widget(bottom_box)
+
+        return wrapper
 
     def toggle_password(self, instance):
         self.password.password = not self.password.password
         instance.icon = "eye" if not self.password.password else "eye-off"
-        instance.text_color = (0.2, 0.45, 0.85, 1) if not self.password.password else (0.5, 0.5, 0.55, 1)
+        instance.text_color = (0.18, 0.38, 0.78, 1) if not self.password.password else (0.5, 0.5, 0.55, 1)
 
     def forgot_password(self, instance):
         self.show_dialog(
@@ -322,25 +287,27 @@ class LoginScreen(Screen):
         if self.loading_modal is None:
             self.loading_modal = ModalView(
                 size_hint=(None, None),
-                size=(dp(150), dp(150)),
-                background_color=(0, 0, 0, 0.75),
+                size=(dp(120), dp(120)),
+                background_color=(0, 0, 0, 0.6),
                 auto_dismiss=False
             )
 
             layout = MDBoxLayout(
                 orientation="vertical",
-                spacing=dp(18),
-                padding=dp(30)
+                spacing=dp(12),
+                padding=dp(20)
             )
 
             spinner = MDSpinner(
                 size_hint=(None, None),
-                size=(dp(60), dp(60)),
-                pos_hint={'center_x': 0.5},
+                size=(dp(50), dp(50)),
+                pos_hint={'center_x': 0.5, 'center_y': 0.5},
                 active=True,
                 palette=[
-                    [0.2, 0.45, 0.85, 1],
-                    [0.3, 0.85, 0.65, 1],
+                    [0.18, 0.38, 0.78, 1],
+                    [0.28, 0.84, 0.60, 1],
+                    [0.89, 0.36, 0.59, 1],
+                    [0.96, 0.76, 0.19, 1],
                 ]
             )
 
@@ -349,10 +316,9 @@ class LoginScreen(Screen):
                 halign="center",
                 theme_text_color="Custom",
                 text_color=(1, 1, 1, 1),
-                font_style="Body1",
+                font_style="Body2",
                 bold=True
             )
-            label.font_size = dp(14)
 
             layout.add_widget(spinner)
             layout.add_widget(label)
@@ -442,7 +408,7 @@ class LoginScreen(Screen):
             buttons=[
                 MDRaisedButton(
                     text="Vào trang chủ",
-                    md_bg_color=(0.2, 0.45, 0.85, 1),
+                    md_bg_color=(0.18, 0.38, 0.78, 1),
                     on_release=lambda x: self.go_to_home(dialog)
                 )
             ]

@@ -21,6 +21,7 @@ class ExamSetupScreen(MDScreen):
     selected_department_id = NumericProperty(0)
     selected_class_id = NumericProperty(0)
     selected_exam_id = NumericProperty(0)
+    selected_difficulty = NumericProperty(1)  # Mặc định là 1 (Dễ)
     is_loading = BooleanProperty(False)
 
     def __init__(self, **kwargs):
@@ -32,8 +33,14 @@ class ExamSetupScreen(MDScreen):
         self.department_menu = None
         self.class_menu = None
         self.exam_menu = None
+        self.difficulty_menu = None
         self.dialog = None
         self.loading_modal = None
+        self.difficulty_options = [
+            {"id": 1, "name": "Dễ"},
+            {"id": 2, "name": "Trung bình"},
+            {"id": 3, "name": "Khó"}
+        ]
         self._build_ui()
 
     def _build_ui(self):
@@ -52,6 +59,7 @@ class ExamSetupScreen(MDScreen):
         # Selection cards
         root_layout.add_widget(self._create_department_card())
         root_layout.add_widget(self._create_class_card())
+        root_layout.add_widget(self._create_difficulty_card())  # Card độ khó mới
         root_layout.add_widget(self._create_exam_card())
 
         # Start button
@@ -89,7 +97,7 @@ class ExamSetupScreen(MDScreen):
         )
 
         subtitle = MDLabel(
-            text="Chọn môn, lớp và đề thi để bắt đầu",
+            text="Chọn môn, lớp, độ khó và đề thi để bắt đầu",
             theme_text_color="Custom",
             text_color=(0.7, 0.75, 0.85, 1),
             font_style="Caption",
@@ -182,6 +190,46 @@ class ExamSetupScreen(MDScreen):
 
         return card
 
+    def _create_difficulty_card(self):
+        """Card mới để chọn độ khó"""
+        card = MDCard(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(12),
+            size_hint_y=None,
+            height=dp(120),
+            radius=[20],
+            md_bg_color=(0.98, 0.98, 0.99, 1),
+            shadow_softness=8,
+            elevation=4
+        )
+
+        label = MDLabel(
+            text="Chọn độ khó",
+            theme_text_color="Custom",
+            text_color=(0.15, 0.15, 0.2, 1),
+            font_style="H6",
+            bold=True,
+            size_hint_y=None,
+            height=dp(30)
+        )
+
+        self.difficulty_button = MDRaisedButton(
+            text="Dễ",
+            md_bg_color=(0.5, 0.5, 0.55, 1),
+            size_hint=(1, None),
+            height=dp(50),
+            elevation=2,
+            disabled=True,
+            on_release=lambda x: self.show_difficulty_menu()
+        )
+        self.difficulty_button.font_size = dp(15)
+
+        card.add_widget(label)
+        card.add_widget(self.difficulty_button)
+
+        return card
+
     def _create_exam_card(self):
         card = MDCard(
             orientation="vertical",
@@ -218,63 +266,6 @@ class ExamSetupScreen(MDScreen):
 
         card.add_widget(label)
         card.add_widget(self.exam_button)
-
-        return card
-
-    def _create_info_card(self):
-        card = MDCard(
-            orientation="vertical",
-            padding=dp(20),
-            spacing=dp(10),
-            size_hint_y=None,
-            height=dp(140),
-            radius=[20],
-            md_bg_color=(0.95, 0.97, 1, 1),
-            shadow_softness=6,
-            elevation=2
-        )
-
-        title = MDLabel(
-            text="💡 Hướng dẫn",
-            theme_text_color="Custom",
-            text_color=(0.18, 0.38, 0.78, 1),
-            font_style="Subtitle1",
-            bold=True,
-            size_hint_y=None,
-            height=dp(25)
-        )
-
-        info1 = MDLabel(
-            text="1️⃣ Chọn môn học bạn muốn kiểm tra",
-            theme_text_color="Custom",
-            text_color=(0.3, 0.3, 0.35, 1),
-            font_style="Body2",
-            size_hint_y=None,
-            height=dp(25)
-        )
-
-        info2 = MDLabel(
-            text="2️⃣ Chọn lớp học phù hợp với trình độ",
-            theme_text_color="Custom",
-            text_color=(0.3, 0.3, 0.35, 1),
-            font_style="Body2",
-            size_hint_y=None,
-            height=dp(25)
-        )
-
-        info3 = MDLabel(
-            text="3️⃣ Chọn đề thi và bắt đầu làm bài",
-            theme_text_color="Custom",
-            text_color=(0.3, 0.3, 0.35, 1),
-            font_style="Body2",
-            size_hint_y=None,
-            height=dp(25)
-        )
-
-        card.add_widget(title)
-        card.add_widget(info1)
-        card.add_widget(info2)
-        card.add_widget(info3)
 
         return card
 
@@ -398,10 +389,17 @@ class ExamSetupScreen(MDScreen):
 
         # Reset selections
         self.selected_class_id = 0
+        self.selected_difficulty = 1
         self.selected_exam_id = 0
+
         self.class_button.text = 'Chọn lớp học...'
         self.class_button.disabled = False
         self.class_button.md_bg_color = (0.18, 0.38, 0.78, 1)
+
+        self.difficulty_button.text = 'Dễ'
+        self.difficulty_button.disabled = True
+        self.difficulty_button.md_bg_color = (0.5, 0.5, 0.55, 1)
+
         self.exam_button.text = 'Chọn đề thi...'
         self.exam_button.disabled = True
         self.exam_button.md_bg_color = (0.5, 0.5, 0.55, 1)
@@ -458,32 +456,74 @@ class ExamSetupScreen(MDScreen):
         self.class_button.text = cls['class_name']
         self.class_menu.dismiss()
 
+        # Reset exam và difficulty selection
+        self.selected_difficulty = 1
+        self.selected_exam_id = 0
+
+        self.difficulty_button.text = '😊 Dễ'
+        self.difficulty_button.disabled = False
+        self.difficulty_button.md_bg_color = (0.18, 0.38, 0.78, 1)
+
+        self.exam_button.text = 'Chọn đề thi...'
+        self.exam_button.disabled = True
+        self.exam_button.md_bg_color = (0.5, 0.5, 0.55, 1)
+
+        print(f"✅ Selected class: {cls['class_name']}")
+
+    def show_difficulty_menu(self):
+        """Hiển thị menu chọn độ khó"""
+        menu_items = [
+            {
+                "text": f"{diff['name']}",
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x=diff: self.select_difficulty(x),
+            } for diff in self.difficulty_options
+        ]
+
+        self.difficulty_menu = MDDropdownMenu(
+            caller=self.difficulty_button,
+            items=menu_items,
+            width_mult=4,
+        )
+        self.difficulty_menu.open()
+
+    def select_difficulty(self, difficulty):
+        """Xử lý khi chọn độ khó"""
+        self.selected_difficulty = difficulty['id']
+        self.difficulty_button.text = f"{difficulty['name']}"
+        self.difficulty_menu.dismiss()
+
         # Reset exam selection
         self.selected_exam_id = 0
         self.exam_button.text = 'Chọn đề thi...'
         self.exam_button.disabled = False
         self.exam_button.md_bg_color = (0.18, 0.38, 0.78, 1)
 
-        # Load exams for this class
-        self.load_exams(self.selected_class_id)
-        print(f"✅ Selected class: {cls['class_name']}")
+        # Load exams với độ khó đã chọn
+        self.load_exams(self.selected_class_id, self.selected_difficulty)
+        print(f"✅ Selected difficulty: {difficulty['name']} (ID: {difficulty['id']})")
 
-    def load_exams(self, class_id):
+    def load_exams(self, class_id, difficulty=1):
+        """Load đề thi theo class_id và difficulty"""
         self.show_loading("Đang tải danh sách đề thi...")
 
         def _load():
             try:
-                res = requests.get(f"{API_URL}/classes/{class_id}/exams", timeout=10)
+                # Gửi difficulty như một query parameter
+                res = requests.get(
+                    f"{API_URL}/classes/{class_id}/exams?difficulty={difficulty}",
+                    timeout=10
+                )
                 if res.status_code == 200:
                     data = res.json()
                     self.exams = data.get('exams', [])
-                    print(f"✅ Loaded {len(self.exams)} exams")
+                    print(f"✅ Loaded {len(self.exams)} exams for difficulty {difficulty}")
 
                     if len(self.exams) == 0:
                         Clock.schedule_once(
                             lambda dt: self.show_error_dialog(
                                 "Thông báo",
-                                "Chưa có đề thi nào cho lớp này.\nVui lòng chọn lớp khác."
+                                "Chưa có đề thi nào cho độ khó này.\nVui lòng chọn độ khó khác."
                             )
                         )
                 else:
@@ -500,7 +540,7 @@ class ExamSetupScreen(MDScreen):
 
     def show_exam_menu(self):
         if not self.exams:
-            self.show_error_dialog("Thông báo", "Chưa có đề thi nào.\nVui lòng chọn lớp khác.")
+            self.show_error_dialog("Thông báo", "Chưa có đề thi nào.\nVui lòng chọn độ khó khác.")
             return
 
         menu_items = [
