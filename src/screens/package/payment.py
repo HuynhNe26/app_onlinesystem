@@ -3,11 +3,10 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.image import Image
+from kivymd.uix.toolbar import MDTopAppBar
 from kivy.metrics import dp
 from kivy.utils import get_color_from_hex
 from kivy.graphics import Color, RoundedRectangle
-from kivy.uix.behaviors import ButtonBehavior
 from kivy.storage.jsonstore import JsonStore
 from kivy.clock import Clock
 import webbrowser
@@ -24,6 +23,14 @@ class PaymentScreen(Screen):
         super().__init__(**kwargs)
         self.loading_widget = None
         self.order_id = None
+
+        self.toolbar = MDTopAppBar(
+            title="Thanh toán",
+            pos_hint={"top": 1},
+            elevation=10,
+            left_action_items=[["arrow-left", lambda x: self.go_back()]]
+        )
+        self.add_widget(self.toolbar)
 
     def send_payment(self, method, pkg, user, token, key_name, callback=None):
         self.show_loading(f"Đang kết nối {method.upper()}...", style="spinner")
@@ -147,7 +154,7 @@ class PaymentScreen(Screen):
                 text="Tiến hành thanh toán MoMo",
                 size_hint_y=None, height=dp(55),
                 background_color=get_color_from_hex("#1E90FF"),
-                color=(0,0,0,0),
+                color=(1, 1, 1, 1),
                 on_release=lambda x: self.pay_with_momo(pkg, user, token)
             ))
 
@@ -172,3 +179,8 @@ class PaymentScreen(Screen):
     def update_rect(self, instance, value):
         instance.rect.pos = instance.pos
         instance.rect.size = instance.size
+
+    def go_back(self):
+        if self.manager:
+            self.manager.transition.direction = "right"
+            self.manager.current = "package"
