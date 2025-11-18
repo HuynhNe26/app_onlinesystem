@@ -54,7 +54,7 @@ class LoginScreen(Screen):
         header = MDBoxLayout(
             orientation="vertical",
             size_hint_y=None,
-            height=dp(30),
+            height=dp(10),
             spacing=dp(18)
         )
 

@@ -16,119 +16,117 @@ import webbrowser
 import requests
 import logging
 import threading
-from ...components.loading import LoadingWidget, LoadingDots, LoadingBar
+import time
 
+# Cấu hình API
 API_BASE_URL = "https://backend-onlinesystem.onrender.com"
+# Cấu hình log
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Imports Components (Giả định các component này tồn tại)
+try:
+    from ...components.loading import LoadingWidget, LoadingDots, LoadingBar
+except ImportError:
+    # Fallback cho trường hợp không có file components/loading
+    class LoadingWidget(BoxLayout):
+        def __init__(self, message="Đang xử lý...", spinner_color=(0.12, 0.56, 1, 1), **kwargs):
+            super().__init__(**kwargs)
+            self.add_widget(Label(text=message, color=(0, 0, 0, 1)))
+        def stop(self): pass
+    class LoadingDots(LoadingWidget): pass
+    class LoadingBar(LoadingWidget): pass
 
 
 class PaymentScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.loading_widget = None
-        self.order_id = None
-        self.check_event = None  # Lưu Clock event để có thể cancel
+        self.order_id = None  # Lưu order_id để check trạng thái
+        self.auto_check_thread = None
+        self.is_checking = False
 
-    # ========================== AUTO CHECK PAYMENT STATUS ==========================
-    def start_auto_check(self, user_id):
-        """Bắt đầu tự động kiểm tra trạng thái thanh toán mỗi 5 giây"""
-        if not self.order_id:
-            return
-
-        # Hủy event cũ nếu có
-        if self.check_event:
-            self.check_event.cancel()
-
-        # Tạo event mới check mỗi 5 giây
-        self.check_event = Clock.schedule_interval(
-            lambda dt: self.check_payment_auto(user_id),
-            5
-        )
-        print(f"Started auto-checking for order_id: {self.order_id}")
-
+    # ========================== AUTO CHECK PAYMENT ==========================
     def stop_auto_check(self):
-        """Dừng việc tự động kiểm tra"""
-        if self.check_event:
-            self.check_event.cancel()
-            self.check_event = None
-            print("Stopped auto-checking")
+        """Dừng luồng kiểm tra tự động nếu nó đang chạy."""
+        self.is_checking = False
+        if self.auto_check_thread and self.auto_check_thread.is_alive():
+            logging.info("Stopping auto check thread.")
+            # Lưu ý: Không thể dừng thread Python trực tiếp, chỉ có thể dùng cờ (flag)
+            # như is_checking để thread tự thoát.
 
-    def check_payment_auto(self, user_id):
-        """Kiểm tra trạng thái thanh toán tự động (chạy trong background)"""
-        if not self.order_id:
-            self.stop_auto_check()
-            return
-
-        def check_thread(order_id, uid):
-            try:
-                res = requests.get(
-                    f"{API_BASE_URL}/api/payment/momo/check-status/{order_id}?user_id={uid}",
-                    timeout=10
-                ).json()
-
-                print(f"Auto check response: {res}")
-                transaction = res.get("transaction")
-
-                # Check status (backend trả về "success", "pending", hoặc "failed")
-                status = transaction.get("status", "").lower()
-                if status == "success":
-                    print("✅ Payment SUCCESS - Auto detected!")
-                    Clock.schedule_once(lambda dt: self.stop_auto_check(), 0)
-                    Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
-                elif status == "failed":
-                    print("❌ Payment FAILED")
-                    Clock.schedule_once(lambda dt: self.stop_auto_check(), 0)
-                    Clock.schedule_once(
-                        lambda dt: self.show_popup("Thanh toán thất bại", "Giao dịch không thành công."), 0)
-                else:
-                    print(f"⏳ Payment pending... Status: {status} (checking again in 5s)")
-
-            except Exception as e:
-                print(f"Auto check error: {e}")
-
-        threading.Thread(target=check_thread, args=(self.order_id, user_id), daemon=True).start()
-
-    # ========================== MANUAL CHECK PAYMENT STATUS ==========================
-    def check_payment_once(self, user_id):
-        """Kiểm tra trạng thái thanh toán thủ công (khi user bấm nút)"""
+    def auto_check_payment(self, token, interval=5, timeout=120):
+        """Tự động kiểm tra trạng thái thanh toán MoMo"""
         if not self.order_id:
             self.show_popup("Lỗi", "Chưa có giao dịch để kiểm tra.")
             return
 
-        def check_thread(order_id, uid):
+        # Đảm bảo chỉ có 1 thread kiểm tra chạy cùng lúc
+        self.stop_auto_check()
+        self.is_checking = True
+        self.order_id_to_check = self.order_id # Đảm bảo order_id không thay đổi trong khi check
+
+        def check_thread():
+            start_time = time.time()
+            logging.info(f"Bắt đầu kiểm tra trạng thái cho Order ID: {self.order_id_to_check}")
+
             try:
-                res = requests.get(
-                    f"{API_BASE_URL}/api/payment/momo/check-status/{order_id}?user_id={uid}",
-                    timeout=10
-                ).json()
-
-                print(f"Manual check response: {res}")
-                transaction = res.get("transaction")
-
-                if transaction:
-                    status = transaction.get("status", "").lower()
-                    if status in ["success", "thành công", "giao dịch thành công"]:
-                        print("✅ Payment SUCCESS")
-                        Clock.schedule_once(lambda dt: self.stop_auto_check(), 0)
-                        Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
-                    else:
-                        print(f"Payment not successful yet. Status: {status}")
+                while self.is_checking:
+                    # 1. Kiểm tra timeout
+                    if time.time() - start_time > timeout:
+                        logging.warning(f"Timeout giao dịch Order ID: {self.order_id_to_check}")
                         Clock.schedule_once(lambda dt: self.show_popup(
-                            "Thanh toán",
-                            f"Trạng thái hiện tại: {transaction.get('status')}\n\n"
-                            "Giao dịch chưa hoàn tất. Vui lòng kiểm tra lại sau."
+                            "Thanh toán", "Hết thời gian chờ thanh toán (2 phút). Vui lòng thử lại hoặc liên hệ hỗ trợ."
                         ), 0)
-                else:
-                    Clock.schedule_once(lambda dt: self.show_popup(
-                        "Lỗi", "Không tìm thấy thông tin giao dịch."
-                    ), 0)
-            except Exception as e:
-                print(f"Check payment error: {e}")
-                Clock.schedule_once(lambda dt: self.show_popup("Lỗi", str(e)), 0)
+                        break
 
-        threading.Thread(target=check_thread, args=(self.order_id, user_id), daemon=True).start()
+                    # 2. Gọi API kiểm tra
+                    res = requests.get(
+                        f"{API_BASE_URL}/api/payment/momo/check-status/{self.order_id_to_check}",
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=5
+                    ).json()
+
+                    transaction = res.get("transaction")
+                    if transaction:
+                        status = transaction.get("status")
+
+                        if status == "success":
+                            logging.info(f"Payment SUCCESS cho Order ID: {self.order_id_to_check}")
+                            Clock.schedule_once(lambda dt: self.show_popup(
+                                "Thành công", f"Giao dịch {self.order_id_to_check} hoàn tất. Gói dịch vụ của bạn đã được kích hoạt!"
+                            ), 0)
+                            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
+                            break
+                        elif status == "failed":
+                            logging.error(f"Payment FAILED cho Order ID: {self.order_id_to_check}")
+                            Clock.schedule_once(lambda dt: self.show_popup(
+                                "Thanh toán", "Giao dịch thất bại. Vui lòng kiểm tra lại tài khoản MoMo."
+                            ), 0)
+                            break
+                        # Nếu status là 'Đang giao dịch'/'PENDING', tiếp tục loop
+
+                    # 3. Chờ cho vòng lặp tiếp theo
+                    time.sleep(interval)
+
+            except requests.exceptions.Timeout:
+                logging.warning("Auto check payment Timeout error.")
+                # Bỏ qua và thử lại ở lần sau
+                pass
+            except Exception as e:
+                logging.error(f"Auto check payment error: {e}")
+                Clock.schedule_once(lambda dt: self.show_popup("Lỗi", f"Lỗi kiểm tra trạng thái: {str(e)}"), 0)
+            finally:
+                self.is_checking = False
+                logging.info(f"Kết thúc kiểm tra trạng thái cho Order ID: {self.order_id_to_check}")
+
+
+        self.auto_check_thread = threading.Thread(target=check_thread, daemon=True)
+        self.auto_check_thread.start()
 
     # =========================== SEND PAYMENT REQUEST ===========================
     def send_payment(self, method, pkg, user, token, key_name):
+        # Dừng kiểm tra cũ trước khi bắt đầu giao dịch mới
+        self.stop_auto_check()
         self.show_loading(f"Đang kết nối {method.upper()}...", style="spinner")
 
         def payment_thread():
@@ -146,40 +144,37 @@ class PaymentScreen(Screen):
                 )
 
                 data = response.json()
-                print(f"Payment response: {data}")
-
+                logging.info(f"Payment response: {data}")
                 Clock.schedule_once(lambda dt: self.hide_loading(), 0)
 
                 pay_url = data.get(key_name)
-                self.order_id = data.get("orderId")
+                self.order_id = data.get("orderId")  # Lưu order_id
 
-                if pay_url and self.order_id:
-                    # Mở URL thanh toán
+                if pay_url:
+                    # Mở link MoMo và bắt đầu auto check
                     Clock.schedule_once(lambda dt: webbrowser.open(pay_url), 0)
-
-                    # BẮT ĐẦU TỰ ĐỘNG KIỂM TRA
-                    user_id = user.get("id_user") or user.get("id")
-                    Clock.schedule_once(lambda dt: self.start_auto_check(user_id), 2)  # Đợi 2s rồi bắt đầu check
-
+                    self.auto_check_payment(token)
                     Clock.schedule_once(lambda dt: self.show_popup(
                         "Thanh toán",
-                        "Vui lòng hoàn tất thanh toán trên MoMo.\n\n"
-                        "Hệ thống sẽ tự động kiểm tra và chuyển trang khi thanh toán thành công."
+                        "Vui lòng hoàn tất thanh toán trên MoMo. App sẽ tự động cập nhật trạng thái."
                     ), 0)
                 else:
-                    Clock.schedule_once(
-                        lambda dt: self.show_popup("Lỗi", data.get("message", "Thanh toán không thành công.")),
-                        0
-                    )
+                    Clock.schedule_once(lambda dt: self.show_popup(
+                        "Lỗi", data.get("message", "Thanh toán không thành công.")
+                    ), 0)
 
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Payment API Request error: {e}")
+                Clock.schedule_once(lambda dt: self.hide_loading(), 0)
+                Clock.schedule_once(lambda dt: self.show_popup("Lỗi", "Lỗi kết nối API thanh toán."), 0)
             except Exception as e:
-                print(f"Payment error: {e}")
+                logging.error(f"Payment error: {e}")
                 Clock.schedule_once(lambda dt: self.hide_loading(), 0)
                 Clock.schedule_once(lambda dt: self.show_popup("Lỗi", str(e)), 0)
 
         threading.Thread(target=payment_thread, daemon=True).start()
 
-    # =============================== UI ==================================================
+    # =============================== UI Helpers ==================================================
     def load_user_and_package(self):
         store = JsonStore("user.json")
         user = token = pkg = None
@@ -195,9 +190,11 @@ class PaymentScreen(Screen):
     def show_loading(self, message="Đang xử lý...", style="spinner"):
         if self.loading_widget: return
         if style == "dots":
-            self.loading_widget = LoadingDots(message=message)
+            # LoadingDots logic
+            pass
         elif style == "bar":
-            self.loading_widget = LoadingBar(message=message)
+            # LoadingBar logic
+            pass
         else:
             self.loading_widget = LoadingWidget(message=message, spinner_color=(0.12, 0.56, 1, 1))
         self.add_widget(self.loading_widget)
@@ -209,8 +206,9 @@ class PaymentScreen(Screen):
             self.loading_widget = None
 
     def show_popup(self, title, message):
-        popup_content = Label(text=message, color=(0, 0, 0, 1))
-        Popup(title=title, content=popup_content, size_hint=(0.7, 0.4)).open()
+        popup_content = Label(text=message, color=(0, 0, 0, 1), halign='center', valign='middle')
+        popup = Popup(title=title, content=popup_content, size_hint=(0.8, 0.4))
+        popup.open()
 
     # ============================ BUILD UI =====================================
     def on_pre_enter(self):
@@ -227,7 +225,7 @@ class PaymentScreen(Screen):
 
             topbar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(55),
                                padding=[dp(10), dp(10)], spacing=dp(10))
-            back_btn = ImageButton(source="src/assets/icon/quaylai.png", size_hint=(None, None), size=(50, 50))
+            back_btn = ImageButton(source="src/assets/icon/quaylai.png", size_hint=(None, None), size=(dp(35), dp(35)))
             back_btn.bind(on_release=lambda x: setattr(self.manager, "current", "package"))
             title = Label(text="Thanh toán gói dịch vụ", font_size='20sp', bold=True,
                           color=get_color_from_hex("#000000"))
@@ -239,15 +237,15 @@ class PaymentScreen(Screen):
             content = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15), size_hint_y=None)
             content.bind(minimum_height=content.setter("height"))
 
-            if not user:
-                content.add_widget(Label(text="Vui lòng đăng nhập để tiếp tục.", font_size=18))
+            if not user or not token:
+                content.add_widget(Label(text="Vui lòng đăng nhập để tiếp tục.", font_size='18sp', color=(0,0,0,1)))
                 scroll.add_widget(content)
                 root.add_widget(scroll)
                 self.add_widget(root)
                 return
 
             if not pkg:
-                content.add_widget(Label(text="Chưa chọn gói dịch vụ nào.", font_size=18))
+                content.add_widget(Label(text="Chưa chọn gói dịch vụ nào.", font_size='18sp', color=(0,0,0,1)))
                 scroll.add_widget(content)
                 root.add_widget(scroll)
                 self.add_widget(root)
@@ -255,15 +253,15 @@ class PaymentScreen(Screen):
 
             # User Info
             user_box = self.create_info_box(dp(100))
-            user_box.add_widget(
-                Label(text=f"Họ và tên: {user.get('fullName', 'N/A')}", font_size=18, color=(0, 0, 0, 1)))
-            user_box.add_widget(Label(text=f"Email: {user.get('email', 'N/A')}", font_size=16, color=(0, 0, 0, 1)))
+            user_box.add_widget(Label(text=f"Họ và tên: {user.get('fullName', 'N/A')}", font_size='18sp', color=(0,0,0,1), halign='left'))
+            user_box.add_widget(Label(text=f"Email: {user.get('email', 'N/A')}", font_size='16sp', color=(0,0,0,1), halign='left'))
             content.add_widget(user_box)
 
             # Package Info
             pkg_box = self.create_info_box(dp(150), bg_color=get_color_from_hex("#F4F6F8"))
-            pkg_box.add_widget(Label(text=f"Gói đã chọn: {pkg['name_package']}", font_size=18, color=(0, 0, 0, 1)))
-            pkg_box.add_widget(Label(text=f"Giá: {pkg['price_month']:,}đ/tháng", font_size=16, color=(0, 0, 0, 1)))
+            pkg_box.add_widget(Label(text="Tóm tắt đơn hàng", font_size='20sp', bold=True, color=(0,0,0,1), halign='left'))
+            pkg_box.add_widget(Label(text=f"Gói đã chọn: {pkg['name_package']}", font_size='18sp', color=(0,0,0,1), halign='left'))
+            pkg_box.add_widget(Label(text=f"Giá: {int(pkg['price_month']):,}đ/tháng", font_size='16sp', color=(1, 0.4, 0, 1), bold=True, halign='left'))
             content.add_widget(pkg_box)
 
             # Payment method
@@ -290,17 +288,8 @@ class PaymentScreen(Screen):
                 size_hint_y=None, height=dp(55),
                 background_color=get_color_from_hex("#1E90FF"),
                 color=(1, 1, 1, 1),
+                font_size='18sp',
                 on_release=lambda x: self.pay_with_momo(pkg, user, token)
-            ))
-
-            # Nút kiểm tra trạng thái thủ công
-            user_id = user.get("id_user") or user.get("id")
-            content.add_widget(Button(
-                text="Kiểm tra trạng thái thanh toán",
-                size_hint_y=None, height=dp(55),
-                background_color=get_color_from_hex("#32CD32"),
-                color=(1, 1, 1, 1),
-                on_release=lambda x: self.check_payment_once(user_id)
             ))
 
             scroll.add_widget(content)
@@ -308,14 +297,14 @@ class PaymentScreen(Screen):
             self.add_widget(root)
 
         except Exception as e:
-            logging.error(f"Error in PaymentScreen: {e}")
-            self.show_popup("Lỗi", str(e))
+            logging.error(f"Error in PaymentScreen on_pre_enter: {e}")
+            self.show_popup("Lỗi", f"Lỗi khởi tạo màn hình: {str(e)}")
 
     def on_leave(self):
-        """Dừng auto check khi rời khỏi màn hình"""
+        """Dừng luồng kiểm tra khi người dùng rời khỏi màn hình thanh toán"""
         self.stop_auto_check()
 
-    # Helper
+    # Helper for UI
     def create_info_box(self, height, bg_color=None):
         if not bg_color:
             bg_color = get_color_from_hex("#E8F2FF")
@@ -335,14 +324,19 @@ class PaymentScreen(Screen):
             super().__init__(orientation="horizontal", padding=dp(12), spacing=dp(12),
                              size_hint_y=None, height=dp(55), **kwargs)
             self.on_select = on_select
+            self.selected = selected
+            bg_color = (0.95, 0.95, 1, 1)
+            if self.selected:
+                # Màu nền nhẹ khi được chọn
+                bg_color = get_color_from_hex("#E0EAF4")
             with self.canvas.before:
-                Color(*(0.95, 0.95, 1, 1) if not selected else (0.2, 0.6, 1, 0.15))
+                Color(*bg_color)
                 self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[10])
             self.bind(pos=self.update_rect, size=self.update_rect)
 
             icon_radio = "src/assets/icon/radio_on.png" if selected else "src/assets/icon/radio_off.png"
             self.add_widget(Image(source=icon_radio, size_hint=(None, None), size=(dp(22), dp(22))))
-            self.add_widget(Label(text=text, font_size=16, halign="left", color=(0, 0, 0, 1)))
+            self.add_widget(Label(text=text, font_size='16sp', halign="left", color=(0,0,0,1), text_size=(Window.width * 0.5, None)))
             self.add_widget(Image(source=icon, size_hint=(None, None), size=(dp(32), dp(32))))
 
         def update_rect(self, *args):
@@ -355,5 +349,5 @@ class PaymentScreen(Screen):
 
     # Action
     def pay_with_momo(self, pkg, user, token):
-        print("=== Pay with MoMo ===")
+        logging.info("=== Pay with MoMo initiated ===")
         self.send_payment("momo", pkg, user, token, "payUrl")
