@@ -69,10 +69,8 @@ class PaymentScreen(Screen):
         print("=== Pay with MoMo ===")
 
         def after_payment(pay_url, order_id):
-            # Mở link MoMo
             webbrowser.open(pay_url)
             self.order_id = order_id
-            # Tự động chuyển sang PaymentSuccessScreen sau khi mở link
             Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
 
         self.send_payment("momo", pkg, user, token, "payUrl", callback=after_payment)
@@ -135,12 +133,12 @@ class PaymentScreen(Screen):
                 return
 
             # User Info
-            user_box = self.create_info_box(dp(100))
+            user_box = self.create_info_box(dp(100), bg_color=get_color_from_hex("#000000"))
             user_box.add_widget(Label(text=f"Họ và tên: {user.get('fullName', 'N/A')}", font_size=18))
             user_box.add_widget(Label(text=f"Email: {user.get('email', 'N/A')}", font_size=16))
             content.add_widget(user_box)
 
-            pkg_box = self.create_info_box(dp(150), bg_color=get_color_from_hex("#F4F6F8"))
+            pkg_box = self.create_info_box(dp(150), bg_color=get_color_from_hex("#000000"))
             pkg_box.add_widget(Label(text=f"Gói đã chọn: {pkg['name_package']}", font_size=18))
             pkg_box.add_widget(Label(text=f"Giá: {pkg['price_month']:,}đ/tháng", font_size=16))
             content.add_widget(pkg_box)
@@ -149,7 +147,7 @@ class PaymentScreen(Screen):
                 text="Tiến hành thanh toán MoMo",
                 size_hint_y=None, height=dp(55),
                 background_color=get_color_from_hex("#1E90FF"),
-                color=(1, 1, 1, 1),
+                color=(0,0,0,0),
                 on_release=lambda x: self.pay_with_momo(pkg, user, token)
             ))
 
