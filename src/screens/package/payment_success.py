@@ -1,21 +1,12 @@
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.image import Image
 from kivy.metrics import dp
 from kivy.utils import get_color_from_hex
-from kivy.graphics import Color, RoundedRectangle
-from kivy.uix.behaviors import ButtonBehavior
 from kivy.storage.jsonstore import JsonStore
 from kivy.clock import Clock
-import webbrowser
 import requests
 import threading
-import logging
-
-from ...components.loading import LoadingWidget, LoadingDots, LoadingBar
 
 API_BASE_URL = "https://backend-onlinesystem.onrender.com"
 
@@ -49,7 +40,6 @@ class PaymentSuccessScreen(Screen):
         self.add_widget(layout)
 
     def on_enter(self):
-        # Khi vào màn hình, tự động check trạng thái
         user, pkg, token = self.load_user_and_package()
         if not token or not pkg:
             return
