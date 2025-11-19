@@ -1,207 +1,405 @@
-from kivy.uix.screenmanager import Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.scrollview import ScrollView
-from kivymd.uix.toolbar import MDTopAppBar
-from kivy.metrics import dp
-from kivy.utils import get_color_from_hex
-from kivy.graphics import Color, RoundedRectangle
-from kivy.storage.jsonstore import JsonStore
-from kivy.clock import Clock
-import webbrowser
-import requests
-import threading
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+import hmac
+import hashlib
+import urllib.parse
+import datetime
 import logging
+from ...config.db_config import get_db_connection
 
-from ...components.loading import LoadingWidget, LoadingDots, LoadingBar
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-API_BASE_URL = "https://backend-onlinesystem.onrender.com"
+vnpay_bp = Blueprint("vnpay_bp", __name__)
 
-class PaymentScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.loading_widget = None
-        self.order_id = None
+VNPAY_CONFIG = {
+    "vnp_TmnCode": "4FZ1N3EZ",
+    "vnp_HashSecret": "G0S15BZBGXV9CO47K7FSJEIO2NAS544V",
+    "vnp_Url": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+    "vnp_Returnurl": "https://frontend-admin-onlinesystem-eugd.onrender.com/payment-success",
+    "vnp_IpnUrl": "https://uninclined-overhonestly-jone.ngrok-free.dev/api/payment/vnpay/ipn"
+}
 
-        self.toolbar = MDTopAppBar(
-            title="Thanh toán",
-            pos_hint={"top": 1},
-            elevation=10,
-            left_action_items=[["arrow-left", lambda x: self.go_back()]]
-        )
-        self.add_widget(self.toolbar)
 
-    def send_payment(self, method, pkg, user, token, key_name, callback=None):
-        self.show_loading(f"Đang kết nối {method.upper()}...", style="spinner")
+@vnpay_bp.route("/vnpay", methods=["POST"])
+@jwt_required()
+def vnpay_payment():
+    conn = None
+    cursor = None
 
-        def payment_thread():
-            try:
-                headers = {"Authorization": f"Bearer {token}"}
-                amount = int(pkg['price_month'])
-                if method == "vnpay":
-                    amount = amount * 100
+    try:
+        current_user = get_jwt_identity()
+        print(current_user)
 
-                payload = {
-                    "price_month": amount,
-                    "name_package": f"Mua gói {pkg['name_package']}",
-                    "id_package": int(pkg["id_package"])
-                }
+        data = request.json
+        required_fields = ["price_month", "name_package", "id_package"]
 
-                response = requests.post(
-                    f"{API_BASE_URL}/api/payment/{method}",
-                    json=payload, headers=headers, timeout=10
-                )
-                data = response.json()
-                print("Payment response:", data)
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "Không có dữ liệu được gửi lên."
+            }), 400
 
-                Clock.schedule_once(lambda dt: self.hide_loading(), 0)
-                result = data.get("data", {})
-                pay_url = result.get(key_name)
-                order_id = result.get("orderId")
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return jsonify({
+                "success": False,
+                "message": f"Thiếu thông tin: {', '.join(missing_fields)}"
+            }), 400
 
-                print("data: ", data)
-                self.order_id = order_id
-
-                if pay_url:
-                    if callback:
-                        Clock.schedule_once(lambda dt: callback(pay_url, order_id), 0)
-                else:
-                    Clock.schedule_once(
-                        lambda dt: self.show_popup("Lỗi", data.get("message", "Thanh toán không thành công.")),
-                        0
-                    )
-            except Exception as e:
-                print("Payment error:", e)
-                Clock.schedule_once(lambda dt: self.hide_loading(), 0)
-                Clock.schedule_once(lambda dt: self.show_popup("Lỗi", str(e)), 0)
-
-        threading.Thread(target=payment_thread, daemon=True).start()
-
-    def pay_with_momo(self, pkg, user, token):
-        def after_payment(pay_url, order_id):
-            webbrowser.open(pay_url)
-            self.order_id = order_id
-            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
-
-        self.send_payment("momo", pkg, user, token, "payUrl", callback=after_payment)
-
-    def pay_with_vnpay(self, pkg, user, token):
-        def after_payment(pay_url, order_id):
-            webbrowser.open(pay_url)
-            self.order_id = order_id
-            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
-
-        self.send_payment("vnpay", pkg, user, token, "payUrl", callback=after_payment)
-
-    def load_user_and_package(self):
-        store = JsonStore("user.json")
-        user = token = pkg = None
-        if store.exists("auth"):
-            auth_data = store.get("auth")
-            token = auth_data.get("token")
-            user = auth_data.get("user")
-        if store.exists("package"):
-            pkg = store.get("package")
-        return user, pkg, token
-
-    def show_loading(self, message="Đang xử lý...", style="spinner"):
-        if self.loading_widget: return
-        if style == "dots":
-            self.loading_widget = LoadingDots(message=message)
-        elif style == "bar":
-            self.loading_widget = LoadingBar(message=message)
-        else:
-            self.loading_widget = LoadingWidget(message=message, spinner_color=(0.12, 0.56, 1, 1))
-        self.add_widget(self.loading_widget)
-
-    def hide_loading(self):
-        if self.loading_widget:
-            self.loading_widget.stop()
-            self.remove_widget(self.loading_widget)
-            self.loading_widget = None
-
-    def show_popup(self, title, message):
-        popup_content = Label(text=message, color=(0, 0, 0, 1))
-        from kivy.uix.popup import Popup
-        Popup(title=title, content=popup_content, size_hint=(0.7, 0.4)).open()
-
-    def on_pre_enter(self):
+        # Validate amount
         try:
-            for child in self.children[:]:
-                if child != self.toolbar:
-                    self.remove_widget(child)
+            amount = int(data.get("amount"))
+            if amount <= 0:
+                return jsonify({
+                    "success": False,
+                    "message": "Số tiền phải lớn hơn 0."
+                }), 400
+        except (ValueError, TypeError):
+            return jsonify({
+                "success": False,
+                "message": "Số tiền không hợp lệ."
+            }), 400
 
-            user, pkg, token = self.load_user_and_package()
-            root = BoxLayout(orientation='vertical', size_hint=(1, 1), pos_hint={"top": 0.9})
+        package_id = data.get("id_package")
+        order_info = data.get("name_package", f"Thanh toán gói {package_id}")
 
-            scroll = ScrollView(size_hint=(1, 1))
-            content = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(20), size_hint_y=None)
-            content.bind(minimum_height=content.setter("height"))
+        conn = get_db_connection()
+        if not conn:
+            logging.error("Failed to connect to database")
+            return jsonify({
+                "success": False,
+                "message": "Không thể kết nối cơ sở dữ liệu."
+            }), 500
 
-            if not user:
-                content.add_widget(Label(text="Vui lòng đăng nhập để tiếp tục.", font_size=18))
-                scroll.add_widget(content)
-                root.add_widget(scroll)
-                self.add_widget(root)
-                return
+        cursor = conn.cursor(dictionary=True)
 
-            if not pkg:
-                content.add_widget(Label(text="Chưa chọn gói dịch vụ nào.", font_size=18))
-                scroll.add_widget(content)
-                root.add_widget(scroll)
-                self.add_widget(root)
-                return
+        cursor.execute(
+            "SELECT id, name, price FROM packages WHERE id = %s",
+            (package_id,)
+        )
+        package = cursor.fetchone()
 
-            user_box = self.create_info_box(dp(120), bg_color=get_color_from_hex("#000000"))
-            user_box.add_widget(Label(text=f"Họ và tên: {user.get('fullName', 'N/A')}", font_size=18))
-            user_box.add_widget(Label(text=f"Email: {user.get('email', 'N/A')}", font_size=16))
-            content.add_widget(user_box)
+        if not package:
+            return jsonify({
+                "success": False,
+                "message": "Gói dịch vụ không tồn tại."
+            }), 404
 
-            pkg_box = self.create_info_box(dp(100), bg_color=get_color_from_hex("#000000"))
-            pkg_box.add_widget(Label(text=f"Gói đã chọn: {pkg['name_package']}", font_size=18))
-            pkg_box.add_widget(Label(text=f"Giá: {pkg['price_month']:,}đ/tháng", font_size=16))
-            content.add_widget(pkg_box)
+        if amount != package['price']:
+            return jsonify({
+                "success": False,
+                "message": "Số tiền không khớp với giá gói."
+            }), 400
 
-            content.add_widget(Button(
-                text="Tiến hành thanh toán MoMo",
-                size_hint_y=None, height=dp(55),
-                background_color=get_color_from_hex("#1E90FF"),
-                color=(1, 1, 1, 1),
-                on_release=lambda x: self.pay_with_momo(pkg, user, token)
-            ))
+        vnp_TxnRef = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        vnp_CreateDate = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
-            content.add_widget(Button(
-                text="Thanh toán bằng VNPay",
-                size_hint_y=None, height=dp(55),
-                background_color=get_color_from_hex("#00A8E8"),
-                color=(1, 1, 1, 1),
-                on_release=lambda x: self.pay_with_vnpay(pkg, user, token)
-            ))
+        vnp_Amount = amount * 100
 
-            scroll.add_widget(content)
-            root.add_widget(scroll)
-            self.add_widget(root)
+        vnp_params = {
+            "vnp_Version": "2.1.0",
+            "vnp_Command": "pay",
+            "vnp_TmnCode": VNPAY_CONFIG["vnp_TmnCode"],
+            "vnp_Amount": str(vnp_Amount),
+            "vnp_CurrCode": "VND",
+            "vnp_TxnRef": vnp_TxnRef,
+            "vnp_OrderInfo": order_info,
+            "vnp_OrderType": "billpayment",
+            "vnp_ReturnUrl": VNPAY_CONFIG["vnp_Returnurl"],
+            "vnp_IpAddr": request.remote_addr or "127.0.0.1",
+            "vnp_CreateDate": vnp_CreateDate,
+            "vnp_Locale": "vn"
+        }
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO transactions 
+                (user_id, package_id, order_id, request_id, amount, payment_method, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                """,
+                (
+                    current_user.get("id"),
+                    package_id,
+                    vnp_TxnRef,
+                    vnp_TxnRef,
+                    amount,
+                    "vnpay",
+                    "pending"
+                )
+            )
+            conn.commit()
+            logging.debug(f"Transaction saved: order_id={vnp_TxnRef}, user_id={current_user.get('id')}")
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"Error saving transaction: {str(e)}")
+            return jsonify({
+                "success": False,
+                "message": "Lỗi lưu giao dịch vào cơ sở dữ liệu."
+            }), 500
+
+        sorted_keys = sorted(vnp_params.keys())
+        query_string = "&".join([
+            f"{key}={urllib.parse.quote(str(vnp_params[key]))}"
+            for key in sorted_keys
+        ])
+
+        hash_value = hmac.new(
+            VNPAY_CONFIG["vnp_HashSecret"].encode(),
+            query_string.encode(),
+            hashlib.sha512
+        ).hexdigest()
+
+        pay_url = f"{VNPAY_CONFIG['vnp_Url']}?{query_string}&vnp_SecureHash={hash_value}"
+
+        logging.debug(f"VNPay payment URL generated for order: {vnp_TxnRef}")
+
+        return jsonify({
+            "success": True,
+            "payUrl": pay_url,
+            "orderId": vnp_TxnRef,
+            "message": "Tạo link thanh toán thành công."
+        }), 200
+
+    except Exception as e:
+        logging.error(f"Unexpected error in vnpay_payment: {str(e)}", exc_info=True)
+        if conn:
+            conn.rollback()
+        return jsonify({
+            "success": False,
+            "message": "Lỗi hệ thống khi xử lý thanh toán."
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@vnpay_bp.route("/vnpay/ipn", methods=["GET"])
+def vnpay_ipn():
+    conn = None
+    cursor = None
+
+    try:
+        vnp_params = request.args.to_dict()
+
+        logging.debug(f"VNPay IPN received: {vnp_params}")
+
+        vnp_SecureHash = vnp_params.pop('vnp_SecureHash', None)
+
+        if not vnp_SecureHash:
+            logging.error("IPN: Missing vnp_SecureHash")
+            return jsonify({
+                "success": False,
+                "message": "Thiếu chữ ký bảo mật."
+            }), 400
+
+        sorted_keys = sorted(vnp_params.keys())
+        query_string = "&".join([
+            f"{key}={urllib.parse.quote(str(vnp_params[key]))}"
+            for key in sorted_keys
+        ])
+
+        expected_hash = hmac.new(
+            VNPAY_CONFIG["vnp_HashSecret"].encode(),
+            query_string.encode(),
+            hashlib.sha512
+        ).hexdigest()
+
+        if not hmac.compare_digest(vnp_SecureHash, expected_hash):
+            logging.error("IPN: Invalid signature")
+            return jsonify({
+                "success": False,
+                "message": "Chữ ký không hợp lệ."
+            }), 403
+
+        vnp_TxnRef = vnp_params.get('vnp_TxnRef')
+        vnp_ResponseCode = vnp_params.get('vnp_ResponseCode')
+        vnp_TransactionNo = vnp_params.get('vnp_TransactionNo')
+        vnp_Amount = int(vnp_params.get('vnp_Amount', 0)) // 100  # Convert back to VND
+
+        if not vnp_TxnRef:
+            logging.error("IPN: Missing vnp_TxnRef")
+            return jsonify({
+                "success": False,
+                "message": "Thiếu mã giao dịch."
+            }), 400
+
+        conn = get_db_connection()
+        if not conn:
+            logging.error("IPN: Failed to connect to database")
+            return jsonify({
+                "success": False,
+                "message": "Không thể kết nối cơ sở dữ liệu."
+            }), 500
+
+        cursor = conn.cursor(dictionary=True)
+
+        # Get transaction details
+        cursor.execute(
+            """
+            SELECT t.*, p.duration_days, p.name as package_name
+            FROM transactions t
+            LEFT JOIN packages p ON t.package_id = p.id
+            WHERE t.order_id = %s
+            """,
+            (vnp_TxnRef,)
+        )
+        transaction = cursor.fetchone()
+
+        if not transaction:
+            logging.error(f"IPN: Transaction not found for order_id: {vnp_TxnRef}")
+            return jsonify({
+                "success": False,
+                "message": "Giao dịch không tồn tại."
+            }), 404
+
+        # Check if already processed
+        if transaction['status'] in ['success', 'failed']:
+            logging.warning(f"IPN: Transaction already processed: {vnp_TxnRef}")
+            return jsonify({
+                "success": True,
+                "message": "IPN đã được xử lý trước đó."
+            }), 200
+
+        # Determine status (00 = success in VNPay)
+        status = "success" if vnp_ResponseCode == "00" else "failed"
+
+        try:
+            # Update transaction
+            cursor.execute(
+                """
+                UPDATE transactions
+                SET status = %s, 
+                    trans_id = %s,
+                    result_code = %s,
+                    updated_at = NOW()
+                WHERE order_id = %s
+                """,
+                (status, vnp_TransactionNo, vnp_ResponseCode, vnp_TxnRef)
+            )
+
+            # If payment successful, update user package
+            if status == "success":
+                user_id = transaction['user_id']
+                package_id = transaction['package_id']
+                duration_days = transaction['duration_days']
+
+                # Update user's package and expiry date
+                cursor.execute(
+                    """
+                    UPDATE users
+                    SET package_id = %s,
+                        package_expiry_date = DATE_ADD(
+                            COALESCE(
+                                CASE 
+                                    WHEN package_expiry_date > NOW() THEN package_expiry_date
+                                    ELSE NOW()
+                                END,
+                                NOW()
+                            ),
+                            INTERVAL %s DAY
+                        ),
+                        updated_at = NOW()
+                    WHERE id_user = %s
+                    """,
+                    (package_id, duration_days, user_id)
+                )
+
+                logging.info(f"IPN: User {user_id} updated with package {package_id}")
+
+            conn.commit()
+
+            logging.info(f"IPN: Transaction {vnp_TxnRef} updated to {status}")
+
+            return jsonify({
+                "success": True,
+                "message": "IPN processed successfully.",
+                "orderId": vnp_TxnRef,
+                "status": status
+            }), 200
 
         except Exception as e:
-            logging.error(f"Error in PaymentScreen: {e}")
-            self.show_popup("Lỗi", str(e))
+            conn.rollback()
+            logging.error(f"IPN: Error updating database: {str(e)}")
+            return jsonify({
+                "success": False,
+                "message": "Lỗi cập nhật dữ liệu."
+            }), 500
 
-    def create_info_box(self, height, bg_color=None):
-        if not bg_color:
-            bg_color = get_color_from_hex("#E8F2FF")
-        box = BoxLayout(orientation='vertical', padding=dp(12), spacing=6, size_hint_y=None, height=height)
-        with box.canvas.before:
-            Color(*bg_color)
-            box.rect = RoundedRectangle(pos=box.pos, size=box.size, radius=[12])
-        box.bind(pos=self.update_rect, size=self.update_rect)
-        return box
+    except Exception as e:
+        logging.error(f"IPN: Unexpected error: {str(e)}", exc_info=True)
+        if conn:
+            conn.rollback()
+        return jsonify({
+            "success": False,
+            "message": "Lỗi xử lý IPN."
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
-    def update_rect(self, instance, value):
-        instance.rect.pos = instance.pos
-        instance.rect.size = instance.size
 
-    def go_back(self):
-        if self.manager:
-            self.manager.transition.direction = "right"
-            self.manager.current = "package"
+@vnpay_bp.route("/vnpay/check-status/<order_id>", methods=["GET"])
+@jwt_required()
+def check_payment_status(order_id):
+    """Check payment status"""
+    conn = None
+    cursor = None
+
+    try:
+        current_user = get_jwt_identity()
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({
+                "success": False,
+                "message": "Không thể kết nối cơ sở dữ liệu."
+            }), 500
+
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT t.*, p.name as package_name
+            FROM transactions t
+            LEFT JOIN packages p ON t.package_id = p.id
+            WHERE t.order_id = %s AND t.user_id = %s
+            """,
+            (order_id, current_user.get("id"))
+        )
+
+        transaction = cursor.fetchone()
+
+        if not transaction:
+            return jsonify({
+                "success": False,
+                "message": "Không tìm thấy giao dịch."
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "transaction": {
+                "orderId": transaction['order_id'],
+                "amount": transaction['amount'],
+                "status": transaction['status'],
+                "packageName": transaction['package_name'],
+                "createdAt": transaction['created_at'].isoformat() if transaction['created_at'] else None,
+                "updatedAt": transaction['updated_at'].isoformat() if transaction['updated_at'] else None
+            }
+        }), 200
+
+    except Exception as e:
+        logging.error(f"Error checking payment status: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": "Lỗi kiểm tra trạng thái thanh toán."
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
