@@ -5,10 +5,10 @@ secret_key = "K951B6PE1waDMi640xX08PD3vg6EkVlz"
 
 data = {
     "accessKey": "F8BBA842ECF85",
-    "amount": "10000",
-    "extraData": "{\"id_package\":2,\"id_user\":10}",
+    "amount": "229000",
+    "extraData": "{\"id_package\":3,\"id_user\":8}",
     "message": "Successful.",
-    "orderId": "18318cc19f01",
+    "orderId": "11c344cb96fd",
     "orderInfo": "Gói PRO",
     "orderType": "momo_wallet",
     "partnerCode": "MOMO",

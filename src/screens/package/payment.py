@@ -38,8 +38,12 @@ class PaymentScreen(Screen):
         def payment_thread():
             try:
                 headers = {"Authorization": f"Bearer {token}"}
+                amount = int(pkg['price_month'])
+                if method == "vnpay":
+                    amount = amount * 100
+
                 payload = {
-                    "price_month": int(pkg['price_month']),
+                    "price_month": amount,
                     "name_package": f"Mua gói {pkg['name_package']}",
                     "id_package": int(pkg["id_package"])
                 }
@@ -52,9 +56,11 @@ class PaymentScreen(Screen):
                 print("Payment response:", data)
 
                 Clock.schedule_once(lambda dt: self.hide_loading(), 0)
+                result = data.get("data", {})
+                pay_url = result.get(key_name)
+                order_id = result.get("orderId")
 
-                pay_url = data.get(key_name)
-                order_id = data.get("orderId")
+                print("data: ", data)
                 self.order_id = order_id
 
                 if pay_url:
@@ -73,14 +79,20 @@ class PaymentScreen(Screen):
         threading.Thread(target=payment_thread, daemon=True).start()
 
     def pay_with_momo(self, pkg, user, token):
-        print("=== Pay with MoMo ===")
-
         def after_payment(pay_url, order_id):
             webbrowser.open(pay_url)
             self.order_id = order_id
             Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
 
         self.send_payment("momo", pkg, user, token, "payUrl", callback=after_payment)
+
+    def pay_with_vnpay(self, pkg, user, token):
+        def after_payment(pay_url, order_id):
+            webbrowser.open(pay_url)
+            self.order_id = order_id
+            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "payment_success"), 0)
+
+        self.send_payment("vnpay", pkg, user, token, "payUrl", callback=after_payment)
 
     def load_user_and_package(self):
         store = JsonStore("user.json")
@@ -116,7 +128,6 @@ class PaymentScreen(Screen):
 
     def on_pre_enter(self):
         try:
-            # Thay vì self.clear_widgets(), chỉ xóa các widget con trừ toolbar
             for child in self.children[:]:
                 if child != self.toolbar:
                     self.remove_widget(child)
@@ -142,7 +153,6 @@ class PaymentScreen(Screen):
                 self.add_widget(root)
                 return
 
-            # User Info
             user_box = self.create_info_box(dp(120), bg_color=get_color_from_hex("#000000"))
             user_box.add_widget(Label(text=f"Họ và tên: {user.get('fullName', 'N/A')}", font_size=18))
             user_box.add_widget(Label(text=f"Email: {user.get('email', 'N/A')}", font_size=16))
@@ -159,6 +169,14 @@ class PaymentScreen(Screen):
                 background_color=get_color_from_hex("#1E90FF"),
                 color=(1, 1, 1, 1),
                 on_release=lambda x: self.pay_with_momo(pkg, user, token)
+            ))
+
+            content.add_widget(Button(
+                text="Thanh toán bằng VNPay",
+                size_hint_y=None, height=dp(55),
+                background_color=get_color_from_hex("#00A8E8"),
+                color=(1, 1, 1, 1),
+                on_release=lambda x: self.pay_with_vnpay(pkg, user, token)
             ))
 
             scroll.add_widget(content)
