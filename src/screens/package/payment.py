@@ -52,11 +52,9 @@ class PaymentScreen(Screen):
                 print("Payment response:", data)
 
                 Clock.schedule_once(lambda dt: self.hide_loading(), 0)
-                result = data.get("data", {})
-                pay_url = result.get(key_name)
-                order_id = result.get("orderId")
 
-                print("data: ", data)
+                pay_url = data.get(key_name)
+                order_id = data.get("orderId")
                 self.order_id = order_id
 
                 if pay_url:
@@ -124,10 +122,10 @@ class PaymentScreen(Screen):
                     self.remove_widget(child)
 
             user, pkg, token = self.load_user_and_package()
-            root = BoxLayout(orientation='vertical', size_hint=(1, 1), pos_hint={"top": 0.9})
+            root = BoxLayout(orientation='vertical', size_hint=(1, 1), pos_hint={"top": 0.8})
 
             scroll = ScrollView(size_hint=(1, 1))
-            content = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(20), size_hint_y=None)
+            content = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15), size_hint_y=None)
             content.bind(minimum_height=content.setter("height"))
 
             if not user:
@@ -145,12 +143,12 @@ class PaymentScreen(Screen):
                 return
 
             # User Info
-            user_box = self.create_info_box(dp(120), bg_color=get_color_from_hex("#000000"))
+            user_box = self.create_info_box(dp(100), bg_color=get_color_from_hex("#000000"))
             user_box.add_widget(Label(text=f"Họ và tên: {user.get('fullName', 'N/A')}", font_size=18))
             user_box.add_widget(Label(text=f"Email: {user.get('email', 'N/A')}", font_size=16))
             content.add_widget(user_box)
 
-            pkg_box = self.create_info_box(dp(100), bg_color=get_color_from_hex("#000000"))
+            pkg_box = self.create_info_box(dp(150), bg_color=get_color_from_hex("#000000"))
             pkg_box.add_widget(Label(text=f"Gói đã chọn: {pkg['name_package']}", font_size=18))
             pkg_box.add_widget(Label(text=f"Giá: {pkg['price_month']:,}đ/tháng", font_size=16))
             content.add_widget(pkg_box)
