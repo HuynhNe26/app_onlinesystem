@@ -60,7 +60,6 @@ class HomeScreen(Screen):
         content.add_widget(self.create_user_card())
         content.add_widget(self.create_today_goal())
         content.add_widget(self.create_recent_activity())
-        content.add_widget(self.create_upgrade_banner())
 
         scroll.add_widget(content)
         root_layout.add_widget(scroll)
