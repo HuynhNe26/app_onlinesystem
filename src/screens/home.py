@@ -180,16 +180,6 @@ class HomeScreen(Screen):
             box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
         box.bind(size=self._update_bg, pos=self._update_bg)
 
-        title = Label(
-            text='Số lần làm bài:',
-            color=(1, 1, 1, 1),
-            font_size='16sp',
-            bold=True,
-            size_hint_y=None,
-            height=30
-        )
-        box.add_widget(title)
-
         btn_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=None, height=50)
 
         btn_test = Button(
@@ -223,22 +213,6 @@ class HomeScreen(Screen):
             box.add_widget(lbl)
         return box
 
-    def create_upgrade_banner(self):
-        box = BoxLayout(orientation='horizontal', padding=10, size_hint_y=None, height=60, spacing=10)
-        with box.canvas.before:
-            Color(1, 0.5, 0.3, 1)
-            box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
-        box.bind(size=self._update_bg, pos=self._update_bg)
-
-        lbl = Label(text='✨ Nâng cấp lên Pro để mở khóa toàn bộ tính năng!', color=(1, 1, 1, 1), halign='center')
-        lbl.bind(size=lambda inst, val: self._auto_resize_label(inst))
-        box.add_widget(lbl)
-
-        btn = Button(text='Nâng cấp', background_color=(1, 0.2, 0.2, 1), size_hint=(0.3, 1))
-        btn.bind(on_press=self.goto_package)
-        box.add_widget(btn)
-        return box
-
     def _update_bg(self, instance, value):
         if hasattr(instance, 'bg'):
             instance.bg.pos = instance.pos
@@ -258,10 +232,6 @@ class HomeScreen(Screen):
         label.text_size = (label.width - 10, None)
         label.halign = 'left'
         label.valign = 'middle'
-
-    def goto_package(self, instance):
-        if self.manager:
-            self.manager.current = 'package'
 
     def goto_test(self, instance):
         if self.manager:

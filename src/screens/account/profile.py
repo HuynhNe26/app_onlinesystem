@@ -100,7 +100,7 @@ class ProfileScreen(Screen):
         self.card.add_widget(self.user_grid)
 
         btn_back = Button(
-            text='QUAY LẠI HOME',
+            text='QUAY LẠI',
             size_hint=(1, None),
             height=dp(50),
             background_color=(0.95, 0.4, 0.4, 1),
@@ -136,10 +136,8 @@ class ProfileScreen(Screen):
                 fields = [
                     ("Họ và tên", user.get('fullName', 'Không có')),
                     ("Email", user.get('email', 'Không có')),
+                    ("Ngày sinh", user.get('dateOfBirth', 'Không có')),
                     ("Giới tính", user.get('gender', 'Không có')),
-                    ("Cấp độ", user.get('level', 'Không có')),
-                    ("Vai trò", user.get('role', 'Không có')),
-                    ("Trạng thái", user.get('status', 'Không có')),
                 ]
 
                 for label, value in fields:
