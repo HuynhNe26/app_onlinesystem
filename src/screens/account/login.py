@@ -641,7 +641,6 @@ class LoginScreen(Screen):
             Clock.schedule_once(lambda dt: self._on_google_login_error(f"Lỗi xử lý: {str(e)}"))
 
     def _on_google_login_success(self, fullname):
-        """Xử lý khi đăng nhập Google thành công"""
         self.hide_loading()
         self.show_success_dialog(
             "Đăng nhập thành công!",
@@ -649,6 +648,5 @@ class LoginScreen(Screen):
         )
 
     def _on_google_login_error(self, message):
-        """Xử lý khi đăng nhập Google thất bại"""
         self.hide_loading()
         self.show_dialog("Đăng nhập Google thất bại", message)
