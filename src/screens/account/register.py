@@ -51,14 +51,6 @@ class RegisterScreen(Screen):
     def _create_header(self):
         header = MDBoxLayout(orientation="vertical", size_hint_y=None, height=dp(90), spacing=dp(10))
 
-        icon_label = MDLabel(
-            text="🎓",
-            halign="center",
-            font_size=dp(45),
-            size_hint_y=None,
-            height=dp(50)
-        )
-
         title = MDLabel(
             text="Tạo Tài Khoản",
             halign="center",
@@ -70,7 +62,6 @@ class RegisterScreen(Screen):
             height=dp(40)
         )
 
-        header.add_widget(icon_label)
         header.add_widget(title)
         return header
 
