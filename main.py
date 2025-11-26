@@ -16,6 +16,7 @@ from src.screens.error_404 import Error404Screen
 from src.screens.exam.exam_setup import ExamSetupScreen
 from src.screens.exam.exam_question import ExamQuestionScreen
 from src.screens.exam.exam_result import ExamResultScreen
+from src.screens.account.profile import PersonalInfoScreen
 from src.screens.exam.exam_history import ExamHistoryScreen
 from src.components.navigation import NavigationDrawer
 
@@ -52,7 +53,8 @@ class EducationPlus(MDApp):
                 (ExamHistoryScreen, 'exam_history'),
                 (PackageScreen, 'package'),
                 (PaymentScreen, 'payment'),
-                (Error404Screen, 'error_404')
+                (Error404Screen, 'error_404'),
+                (PersonalInfoScreen, 'personal_info')
             ]
 
             for screen_class, name in screens:

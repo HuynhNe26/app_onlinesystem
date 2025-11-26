@@ -28,7 +28,7 @@ NAV_KV = '''
             icon: "account"
             text: "Thông tin cá nhân"
             on_release: 
-                root.show_coming_soon("Thông tin cá nhân")
+                root.navigate("personal_info")
 
         DrawerClickableItem:
             icon: "history"
