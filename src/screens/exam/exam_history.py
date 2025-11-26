@@ -1,17 +1,19 @@
 import requests
+import logging
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.button import MDFlatButton
+from kivymd.uix.button import MDFlatButton, MDRaisedButton
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
+from kivymd.uix.boxlayout import MDBoxLayout
 from kivy.lang import Builder
 from kivy.metrics import dp
-import logging
+from kivy.clock import Clock
+import threading
 
 API_URL = "https://backend-onlinesystem.onrender.com/api/exam"
 
-# KV Layout embedded
-Builder.load_string("""
+KV = """
 <ExamHistoryScreen>:
     MDBoxLayout:
         orientation: 'vertical'
@@ -50,51 +52,60 @@ Builder.load_string("""
                 padding: dp(5)
                 size_hint_y: None
                 height: self.minimum_height
-""")
+"""
+
+Builder.load_string(KV)
 
 
 class ExamHistoryScreen(MDScreen):
-    """Màn hình hiển thị lịch sử bài thi"""
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.dialog = None
 
     def on_enter(self):
-        """Tự động load khi vào màn hình"""
         self.load_history()
 
     def load_history(self):
-        """Tải lịch sử bài thi từ API"""
-        try:
-            token = self.get_token()
+        def _load():
+            try:
+                token = self.get_token()
+                if not token:
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", "Bạn chưa đăng nhập"))
+                    return
 
-            res = requests.get(
-                f"{API_URL}/exam/history",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=5
-            )
+                res = requests.get(
+                    f"{API_URL}/exam/history",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10
+                )
 
-            data = res.json()
+                if res.status_code != 200:
+                    try:
+                        msg = res.json().get('message', res.text)
+                    except Exception:
+                        msg = res.text
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", msg))
+                    return
 
-            if res.status_code == 200 and data.get('success'):
+                data = res.json()
+                if not data.get('success'):
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", data.get('message', 'Lỗi server')))
+                    return
+
                 history = data.get('history', [])
-                logging.info(f"Loaded {len(history)} exam records")
-                self.display_history(history)
-            else:
-                self.show_error_dialog("Lỗi", data.get('message', 'Không tải được lịch sử'))
+                Clock.schedule_once(lambda dt: self.display_history(history))
 
-        except Exception as e:
-            logging.error(f"Error loading history: {e}")
-            self.show_error_dialog("Lỗi", f"Lỗi khi tải lịch sử: {str(e)}")
+            except Exception as e:
+                logging.error(f"Error loading history: {e}")
+                Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", str(e)))
+
+        threading.Thread(target=_load, daemon=True).start()
 
     def display_history(self, history):
-        """Hiển thị danh sách lịch sử"""
         history_layout = self.ids.history_layout
         history_layout.clear_widgets()
 
         if not history:
-            # No history message
             empty_card = MDCard(
                 orientation='vertical',
                 padding=dp(30),
@@ -103,48 +114,34 @@ class ExamHistoryScreen(MDScreen):
                 elevation=2,
                 radius=[15, 15, 15, 15]
             )
-
-            empty_icon = MDLabel(
-                text='📚',
-                halign='center',
-                font_style='H3',
-                size_hint_y=None,
-                height=dp(50)
-            )
-
             empty_label = MDLabel(
-                text='Chưa có lịch sử bài thi\\n\\nHãy bắt đầu làm bài kiểm tra đầu tiên!',
+                text='Chưa có lịch sử bài thi\n\nHãy bắt đầu làm bài kiểm tra đầu tiên!',
                 halign='center',
                 font_style='Body1',
                 size_hint_y=None,
                 height=dp(70)
             )
-
-            empty_card.add_widget(empty_icon)
             empty_card.add_widget(empty_label)
             history_layout.add_widget(empty_card)
             return
 
-        # Display each exam record
         for item in history:
             card = self.create_history_card(item)
             history_layout.add_widget(card)
 
     def create_history_card(self, item):
-        """Tạo card cho mỗi bài thi"""
         card = MDCard(
             orientation='vertical',
-            padding=dp(15),
+            padding=dp(12),
             spacing=dp(8),
             size_hint_y=None,
-            height=dp(160),
+            height=dp(230),
             elevation=3,
-            radius=[15, 15, 15, 15]
+            radius=[12, 12, 12, 12]
         )
 
-        # Header with exam name
         name_label = MDLabel(
-            text=item['name_ex'],
+            text=item.get('exam_name', 'Đề thi'),
             font_style='H6',
             bold=True,
             size_hint_y=None,
@@ -152,20 +149,16 @@ class ExamHistoryScreen(MDScreen):
         )
         card.add_widget(name_label)
 
-        # Score with color and icon
-        score = item['score']
+        score = item.get('score', 0)
         if score >= 80:
             score_color = [0.2, 0.8, 0.2, 1]
-            icon = '🎉'
         elif score >= 50:
             score_color = [0.2, 0.6, 1, 1]
-            icon = '👍'
         else:
             score_color = [0.8, 0.2, 0.2, 1]
-            icon = '😔'
 
         score_label = MDLabel(
-            text=f"{icon} Điểm: {score}/100",
+            text=f"Điểm: {score}/100",
             font_style='H6',
             theme_text_color='Custom',
             text_color=score_color,
@@ -174,30 +167,29 @@ class ExamHistoryScreen(MDScreen):
         )
         card.add_widget(score_label)
 
-        # Correct answers
+        total_correct = item.get('total_correct')
+        total_q = item.get('total_ques')
         correct_label = MDLabel(
-            text=f"✅ Số câu đúng: {item['total_correct']}/{item['total_ques']}",
+            text=f"Số câu đúng: {total_correct}/{total_q}",
             font_style='Subtitle1',
             size_hint_y=None,
             height=dp(25)
         )
         card.add_widget(correct_label)
 
-        # Category
         category_label = MDLabel(
-            text=f"📚 Danh mục: {item.get('exam_cat', 'N/A')}",
+            text=f"Danh mục: {item.get('class_name', 'N/A')}",
             font_style='Body2',
             size_hint_y=None,
             height=dp(25)
         )
         card.add_widget(category_label)
 
-        # Date
         try:
-            date_str = str(item['completed_time'])[:19]
-            date_label_text = f"📅 Ngày làm: {date_str}"
+            date_str = str(item.get('completed_time') or item.get('created_at', ''))[:19]
+            date_label_text = f"Ngày làm: {date_str}"
         except:
-            date_label_text = "📅 Ngày làm: N/A"
+            date_label_text = "Ngày làm: N/A"
 
         date_label = MDLabel(
             text=date_label_text,
@@ -207,58 +199,54 @@ class ExamHistoryScreen(MDScreen):
         )
         card.add_widget(date_label)
 
+        detail_button = MDRaisedButton(
+            text='Xem chi tiết',
+            size_hint_x=1,
+            size_hint_y=None,
+            height=dp(44),
+            md_bg_color=[0.2, 0.6, 1, 1],
+            on_release=lambda x, result_id=item.get('id_result'): self.view_detail(result_id)
+        )
+        card.add_widget(detail_button)
+
         return card
 
+    def view_detail(self, result_id):
+        try:
+            detail_screen = self.manager.get_screen('exam_detail')
+            detail_screen.load_result_detail(result_id, from_screen='exam_history')
+            self.manager.current = 'exam_detail'
+        except Exception as e:
+            logging.error(f"Error navigating to detail: {e}")
+            self.show_error_dialog("Lỗi", f"Không thể mở chi tiết: {e}")
+
     def go_back(self):
-        """Quay lại màn hình trước"""
-        self.manager.current = 'exam_setup'
+        self.manager.current = 'home'
 
     def refresh_history(self):
-        """Làm mới lịch sử"""
         self.load_history()
 
     def get_token(self):
-        """Lấy token từ storage - FIXED VERSION"""
         try:
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
-
-            # Cách 1: Token lưu riêng trong key 'token'
-            if store.exists('token'):
-                token_data = store.get('token')
-                token = token_data.get('access_token')
-                if token:
-                    print(f"✅ Token found: {token[:20]}...")  # Debug
-                    return token
-
-            # Cách 2: Token lưu trong key 'user'
-            if store.exists('user'):
-                user_data = store.get('user')
-                token = user_data.get('token') or user_data.get('access_token')
-                if token:
-                    print(f"✅ Token found in user: {token[:20]}...")  # Debug
-                    return token
-
-            print("⚠️ No token found, using demo_token")
-            return "demo_token"
-
+            for key in ('auth', 'token', 'user'):
+                if store.exists(key):
+                    d = store.get(key)
+                    token = d.get('token') or d.get('access_token') or (d if isinstance(d, str) else None)
+                    if token:
+                        return token
+            return None
         except Exception as e:
-            print(f"❌ Error getting token: {e}")
-            return "demo_token"
+            logging.error(f"Error getting token: {e}")
+            return None
 
     def show_error_dialog(self, title, message):
-        """Hiển thị dialog lỗi"""
         if self.dialog:
             self.dialog.dismiss()
-
         self.dialog = MDDialog(
             title=title,
-            text=message,
-            buttons=[
-                MDFlatButton(
-                    text="OK",
-                    on_release=lambda x: self.dialog.dismiss()
-                )
-            ]
+            text=str(message),
+            buttons=[MDFlatButton(text="OK", on_release=lambda x: self.dialog.dismiss())]
         )
         self.dialog.open()

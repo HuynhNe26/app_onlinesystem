@@ -2,6 +2,7 @@ from kivy.lang import Builder
 from kivymd.uix.navigationdrawer import MDNavigationDrawer
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
+from kivy.storage.jsonstore import JsonStore
 
 NAV_KV = '''
 <DrawerClickableItem@MDNavigationDrawerItem>
@@ -28,7 +29,11 @@ NAV_KV = '''
             icon: "account"
             text: "Thông tin cá nhân"
             on_release: 
+<<<<<<< HEAD
                 root.navigate("personal_info")
+=======
+                root.navigate("profile")
+>>>>>>> 411b8e7777a5941776b04fa7d106607166c2259d
 
         DrawerClickableItem:
             icon: "history"
@@ -133,7 +138,13 @@ class NavigationDrawer(MDNavigationDrawer):
     def confirm_logout(self):
         if self.dialog:
             self.dialog.dismiss()
-
+        try:
+            store = JsonStore("user.json")
+            if store.exists("auth"):
+                store.delete("auth")
+            if store.exists("user"):
+                store.delete("user")
+            print("Đã xóa token và dữ liệu người dùng.")
+        except Exception as e:
+            print(f"Lỗi khi xóa token: {e}")
         self.navigate('login')
-
-        print("Đã đăng xuất thành công")

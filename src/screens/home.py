@@ -19,7 +19,7 @@ class HomeScreen(Screen):
 
         root_layout = FloatLayout()
         with root_layout.canvas.before:
-            Color(0, 0, 0, 1)  # Nền đen
+            Color(0, 0, 0, 1)
             self.bg_rect = RoundedRectangle(size=root_layout.size, pos=root_layout.pos)
         root_layout.bind(size=self._update_root_bg, pos=self._update_root_bg)
 
@@ -60,7 +60,6 @@ class HomeScreen(Screen):
         content.add_widget(self.create_user_card())
         content.add_widget(self.create_today_goal())
         content.add_widget(self.create_recent_activity())
-        content.add_widget(self.create_upgrade_banner())
 
         scroll.add_widget(content)
         root_layout.add_widget(scroll)
@@ -93,8 +92,9 @@ class HomeScreen(Screen):
         try:
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
-            if store.exists('user'):
-                self.user_data = store.get('user')
+            if store.exists('auth'):
+                auth= store.get('auth')
+                self.user_data = auth.get('user')
                 self.update_user_card()
         except Exception as e:
             print(f"Lỗi load user data: {e}")
@@ -173,27 +173,16 @@ class HomeScreen(Screen):
         return card
 
     def create_today_goal(self):
-        box = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=None, height=160)
+        box = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=None, height=75)
         with box.canvas.before:
             Color(0.15, 0.15, 0.15, 1)  # Màu xám đen
             box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
         box.bind(size=self._update_bg, pos=self._update_bg)
 
-        # Tiêu đề
-        title = Label(
-            text='🎯 Mục tiêu hôm nay',
-            color=(1, 1, 1, 1),
-            font_size='16sp',
-            bold=True,
-            size_hint_y=None,
-            height=30
-        )
-        box.add_widget(title)
-
         btn_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=None, height=50)
 
         btn_test = Button(
-            text="🧩 Kiểm tra",
+            text="Kiểm tra",
             background_color=(0.2, 0.6, 1, 1)
         )
         btn_test.bind(on_press=self.goto_test)
@@ -223,22 +212,6 @@ class HomeScreen(Screen):
             box.add_widget(lbl)
         return box
 
-    def create_upgrade_banner(self):
-        box = BoxLayout(orientation='horizontal', padding=10, size_hint_y=None, height=60, spacing=10)
-        with box.canvas.before:
-            Color(1, 0.5, 0.3, 1)
-            box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)
-        box.bind(size=self._update_bg, pos=self._update_bg)
-
-        lbl = Label(text='✨ Nâng cấp lên Pro để mở khóa toàn bộ tính năng!', color=(1, 1, 1, 1), halign='center')
-        lbl.bind(size=lambda inst, val: self._auto_resize_label(inst))
-        box.add_widget(lbl)
-
-        btn = Button(text='Nâng cấp', background_color=(1, 0.2, 0.2, 1), size_hint=(0.3, 1))
-        btn.bind(on_press=self.goto_package)
-        box.add_widget(btn)
-        return box
-
     def _update_bg(self, instance, value):
         if hasattr(instance, 'bg'):
             instance.bg.pos = instance.pos
@@ -258,10 +231,6 @@ class HomeScreen(Screen):
         label.text_size = (label.width - 10, None)
         label.halign = 'left'
         label.valign = 'middle'
-
-    def goto_package(self, instance):
-        if self.manager:
-            self.manager.current = 'package'
 
     def goto_test(self, instance):
         if self.manager:
