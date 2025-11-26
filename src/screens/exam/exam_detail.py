@@ -54,7 +54,7 @@ KV = """
                 orientation: 'vertical'
                 spacing: dp(20)
                 padding: dp(40)
-                pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+                pos_hint: {'center_x': 5, 'center_y': 5}}
                 size_hint: None, None
                 size: dp(200), dp(200)
 

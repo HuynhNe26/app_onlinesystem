@@ -53,16 +53,13 @@ class ExamSetupScreen(MDScreen):
         )
         root_layout.bind(minimum_height=root_layout.setter('height'))
 
-        # Header
         root_layout.add_widget(self._create_header())
 
-        # Selection cards
         root_layout.add_widget(self._create_department_card())
         root_layout.add_widget(self._create_class_card())
-        root_layout.add_widget(self._create_difficulty_card())  # Card độ khó mới
+        root_layout.add_widget(self._create_difficulty_card())
         root_layout.add_widget(self._create_exam_card())
 
-        # Start button
         root_layout.add_widget(self._create_start_button())
 
         scroll.add_widget(root_layout)
@@ -191,7 +188,6 @@ class ExamSetupScreen(MDScreen):
         return card
 
     def _create_difficulty_card(self):
-        """Card mới để chọn độ khó"""
         card = MDCard(
             orientation="vertical",
             padding=dp(20),
@@ -404,7 +400,6 @@ class ExamSetupScreen(MDScreen):
         self.exam_button.disabled = True
         self.exam_button.md_bg_color = (0.5, 0.5, 0.55, 1)
 
-        # Load classes
         self.load_classes(self.selected_department_id)
 
     def load_classes(self, dept_id):
@@ -460,7 +455,7 @@ class ExamSetupScreen(MDScreen):
         self.selected_difficulty = 1
         self.selected_exam_id = 0
 
-        self.difficulty_button.text = '😊 Dễ'
+        self.difficulty_button.text = 'Dễ'
         self.difficulty_button.disabled = False
         self.difficulty_button.md_bg_color = (0.18, 0.38, 0.78, 1)
 
@@ -468,10 +463,7 @@ class ExamSetupScreen(MDScreen):
         self.exam_button.disabled = True
         self.exam_button.md_bg_color = (0.5, 0.5, 0.55, 1)
 
-        print(f"✅ Selected class: {cls['class_name']}")
-
     def show_difficulty_menu(self):
-        """Hiển thị menu chọn độ khó"""
         menu_items = [
             {
                 "text": f"{diff['name']}",

@@ -103,7 +103,6 @@ class ExamHistoryScreen(MDScreen):
         threading.Thread(target=_load, daemon=True).start()
 
     def display_history(self, history):
-        """Hiển thị danh sách lịch sử"""
         history_layout = self.ids.history_layout
         history_layout.clear_widgets()
 
@@ -116,13 +115,6 @@ class ExamHistoryScreen(MDScreen):
                 elevation=2,
                 radius=[15, 15, 15, 15]
             )
-            empty_icon = MDLabel(
-                text='📚',
-                halign='center',
-                font_style='H3',
-                size_hint_y=None,
-                height=dp(50)
-            )
             empty_label = MDLabel(
                 text='Chưa có lịch sử bài thi\n\nHãy bắt đầu làm bài kiểm tra đầu tiên!',
                 halign='center',
@@ -130,7 +122,6 @@ class ExamHistoryScreen(MDScreen):
                 size_hint_y=None,
                 height=dp(70)
             )
-            empty_card.add_widget(empty_icon)
             empty_card.add_widget(empty_label)
             history_layout.add_widget(empty_card)
             return
@@ -140,13 +131,12 @@ class ExamHistoryScreen(MDScreen):
             history_layout.add_widget(card)
 
     def create_history_card(self, item):
-        """Tạo card cho mỗi bài thi"""
         card = MDCard(
             orientation='vertical',
             padding=dp(12),
             spacing=dp(8),
             size_hint_y=None,
-            height=dp(200),
+            height=dp(230),
             elevation=3,
             radius=[12, 12, 12, 12]
         )
@@ -163,16 +153,13 @@ class ExamHistoryScreen(MDScreen):
         score = item.get('score', 0)
         if score >= 80:
             score_color = [0.2, 0.8, 0.2, 1]
-            icon = '🎉'
         elif score >= 50:
             score_color = [0.2, 0.6, 1, 1]
-            icon = '👍'
         else:
             score_color = [0.8, 0.2, 0.2, 1]
-            icon = '😔'
 
         score_label = MDLabel(
-            text=f"{icon} Điểm: {score}/100",
+            text=f"Điểm: {score}/100",
             font_style='H6',
             theme_text_color='Custom',
             text_color=score_color,
@@ -184,7 +171,7 @@ class ExamHistoryScreen(MDScreen):
         total_correct = item.get('total_correct', 0)
         total_q = item.get('total_questions') or item.get('total_ques') or 0
         correct_label = MDLabel(
-            text=f"✅ Số câu đúng: {total_correct}/{total_q}",
+            text=f"Số câu đúng: {total_correct}/{total_q}",
             font_style='Subtitle1',
             size_hint_y=None,
             height=dp(25)
@@ -192,7 +179,7 @@ class ExamHistoryScreen(MDScreen):
         card.add_widget(correct_label)
 
         category_label = MDLabel(
-            text=f"📚 Danh mục: {item.get('exam_cat', 'N/A')}",
+            text=f"Danh mục: {item.get('class_name', 'N/A')}",
             font_style='Body2',
             size_hint_y=None,
             height=dp(25)
@@ -201,9 +188,9 @@ class ExamHistoryScreen(MDScreen):
 
         try:
             date_str = str(item.get('completed_time') or item.get('created_at', ''))[:19]
-            date_label_text = f"📅 Ngày làm: {date_str}"
+            date_label_text = f"Ngày làm: {date_str}"
         except:
-            date_label_text = "📅 Ngày làm: N/A"
+            date_label_text = "Ngày làm: N/A"
 
         date_label = MDLabel(
             text=date_label_text,
@@ -214,7 +201,7 @@ class ExamHistoryScreen(MDScreen):
         card.add_widget(date_label)
 
         detail_button = MDRaisedButton(
-            text='📊 Xem chi tiết',
+            text='Xem chi tiết',
             size_hint_x=1,
             size_hint_y=None,
             height=dp(44),

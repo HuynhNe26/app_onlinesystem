@@ -42,7 +42,7 @@ Builder.load_string("""
 
             MDLabel:
                 id: timer_label
-                text: '⏱️ Thời gian: --:--'
+                text: 'Thời gian: --:--'
                 font_style: 'H6'
                 bold: True
                 size_hint_y: None
@@ -79,13 +79,13 @@ Builder.load_string("""
             height: dp(50)
 
             MDRaisedButton:
-                text: '⬆️ Lên đầu trang'
+                text: 'Lên đầu trang'
                 size_hint_x: 0.5
                 md_bg_color: 0.4, 0.6, 1, 1
                 on_release: root.scroll_to_top()
 
             MDRaisedButton:
-                text: '📤 Nộp bài'
+                text: 'Nộp bài'
                 size_hint_x: 0.5
                 md_bg_color: 0.8, 0.2, 0.2, 1
                 on_release: root.confirm_submit()
@@ -103,7 +103,7 @@ class ExamQuestionScreen(MDScreen):
         self.timer_event = None
         self.dialog = None
         self.question_widgets = []
-        self.duration = 30  # fallback duration
+        self.duration = 30
 
     def set_exam(self, exam_data):
         """Thiết lập dữ liệu cho bài thi"""
@@ -175,7 +175,6 @@ class ExamQuestionScreen(MDScreen):
             self.show_error_dialog("Lỗi", f"Lỗi khi tải câu hỏi: {str(e)}")
 
     def display_all_questions(self, data):
-        """Hiển thị tất cả câu hỏi"""
         exam_info = data.get('exam', {})
         questions = data.get('questions', [])
 
@@ -258,7 +257,6 @@ class ExamQuestionScreen(MDScreen):
             answered = len(self.answers)
             if hasattr(self.ids, 'progress_label'):
                 self.ids.progress_label.text = f"Tổng số câu: {answered}/{self.total_questions}"
-            print(f"✅ Answered Q{question_id}: {answer}")
 
     def scroll_to_top(self):
         self.ids.scroll_view.scroll_y = 1

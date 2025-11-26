@@ -8,7 +8,6 @@ from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.spinner import MDSpinner
 from kivy.uix.modalview import ModalView
-from kivy.uix.image import Image
 from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp
 from kivy.clock import Clock
