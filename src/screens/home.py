@@ -173,7 +173,7 @@ class HomeScreen(Screen):
         return card
 
     def create_today_goal(self):
-        box = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=None, height=160)
+        box = BoxLayout(orientation='vertical', spacing=5, padding=10, size_hint_y=None, height=75)
         with box.canvas.before:
             Color(0.15, 0.15, 0.15, 1)  # Màu xám đen
             box.bg = RoundedRectangle(radius=[20], size=box.size, pos=box.pos)

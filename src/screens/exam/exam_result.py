@@ -98,7 +98,7 @@ class ExamResultScreen(MDScreen):
         score = result.get("score",0)
         score_color = [0.2,0.8,0.2,1] if score>=80 else [0.2,0.6,1,1] if score>=50 else [0.8,0.2,0.2,1]
         card.add_widget(MDLabel(
-            text=f"🎯 Điểm: {score}/100",
+            text=f"Điểm: {score}/100",
             font_style='H5',
             theme_text_color='Custom',
             text_color=score_color,

@@ -7,8 +7,9 @@ from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 from kivy.lang import Builder
 from kivy.metrics import dp
-from kivy.properties import BooleanProperty
+
 from kivy.clock import Clock
+import threading
 
 API_URL = "https://backend-onlinesystem.onrender.com/api/exam"
 
@@ -40,38 +41,6 @@ KV = """
                 size_hint_x: None
                 width: dp(50)
 
-        # Loading Overlay
-        MDCard:
-            id: loading_overlay
-            size_hint: 1, 1
-            md_bg_color: 0, 0, 0, 0.7
-            elevation: 10
-            radius: [15, 15, 15, 15]
-            opacity: 1 if root.is_loading else 0
-            disabled: not root.is_loading
-
-            MDBoxLayout:
-                orientation: 'vertical'
-                spacing: dp(20)
-                padding: dp(40)
-                pos_hint: {'center_x': 5, 'center_y': 5}}
-                size_hint: None, None
-                size: dp(200), dp(200)
-
-                MDSpinner:
-                    size_hint: None, None
-                    size: dp(80), dp(80)
-                    pos_hint: {'center_x': 0.5}
-                    active: root.is_loading
-                    color: 1, 1, 1, 1
-
-                MDLabel:
-                    text: 'Đang tải...'
-                    halign: 'center'
-                    font_style: 'H6'
-                    theme_text_color: 'Custom'
-                    text_color: 1, 1, 1, 1
-
         # Summary Card
         MDCard:
             id: summary_card
@@ -79,11 +48,10 @@ KV = """
             padding: dp(15)
             spacing: dp(8)
             size_hint_y: None
-            height: dp(140)
+            height: dp(160)
             elevation: 3
             md_bg_color: app.theme_cls.primary_color
             radius: [15, 15, 15, 15]
-            opacity: 0 if root.is_loading else 1
 
             MDLabel:
                 id: summary_title
@@ -124,7 +92,6 @@ KV = """
 
         # Detail list
         ScrollView:
-            opacity: 0 if root.is_loading else 1
 
             MDBoxLayout:
                 id: detail_layout
@@ -139,7 +106,6 @@ Builder.load_string(KV)
 
 
 class ExamDetailScreen(MDScreen):
-    is_loading = BooleanProperty(False)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -147,15 +113,13 @@ class ExamDetailScreen(MDScreen):
         self.result_data = None
 
     def load_result_detail(self, result_id, from_screen='exam_result'):
-        """Load chi tiết bài làm từ API"""
         self.from_screen = from_screen
-        self.is_loading = True
 
         def _load():
             try:
                 token = self.get_token()
                 if not token:
-                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", "Bạn chưa đăng nhập")), None
+                    Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", "Bạn chưa đăng nhập"))
                     return
 
                 res = requests.get(
@@ -183,28 +147,21 @@ class ExamDetailScreen(MDScreen):
             except Exception as e:
                 logging.error(f"Error loading detail: {e}")
                 Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", str(e)))
-            finally:
-                Clock.schedule_once(lambda dt: setattr(self, 'is_loading', False))
 
-        import threading
         threading.Thread(target=_load, daemon=True).start()
 
     def display_detail(self, result, answers):
-        """Hiển thị chi tiết bài làm"""
-        # Update summary
         self.ids.summary_title.text = result.get('exam_cat', 'Kết quả')
-        self.ids.summary_score.text = f"🎯 Điểm: {result.get('score', 0)}/100"
-        # some DBs store total_questions under different key; try multiple
+        self.ids.summary_score.text = f"Điểm: {result.get('score', 0)}/100"
         total_q = result.get('total_questions') or result.get('total_ques') or result.get('total_ques', 0)
-        self.ids.summary_correct.text = f"✅ Đúng: {result.get('total_correct', 0)}/{total_q}"
+        self.ids.summary_correct.text = f"Số câu đúng: {result.get('total_correct', 0)}/{total_q}"
 
         try:
             date_str = str(result.get('completed_time', ''))[:19]
-            self.ids.summary_date.text = f"📅 {date_str}"
+            self.ids.summary_date.text = f"{date_str}"
         except Exception:
-            self.ids.summary_date.text = "📅 N/A"
+            self.ids.summary_date.text = "N/A"
 
-        # Display answer details
         detail_layout = self.ids.detail_layout
         detail_layout.clear_widgets()
 
@@ -213,17 +170,14 @@ class ExamDetailScreen(MDScreen):
             detail_layout.add_widget(card)
 
     def create_answer_card(self, answer, question_number):
-        """Tạo card hiển thị chi tiết từng câu trả lời"""
         is_correct = bool(answer.get('is_correct'))
 
         if is_correct:
             bg_color = [0.2, 0.8, 0.2, 0.12]
             border_color = [0.2, 0.8, 0.2, 1]
-            icon = "✅"
         else:
             bg_color = [0.95, 0.85, 0.85, 1]
             border_color = [0.8, 0.2, 0.2, 1]
-            icon = "❌"
 
         card = MDCard(
             orientation='vertical',
@@ -236,7 +190,7 @@ class ExamDetailScreen(MDScreen):
         )
 
         header = MDLabel(
-            text=f"{icon} [b]Câu {question_number}:[/b]",
+            text=f"[b]Câu {question_number}:[/b]",
             markup=True,
             font_style='H6',
             size_hint_y=None,
@@ -277,7 +231,7 @@ class ExamDetailScreen(MDScreen):
 
         if answer.get('explanation'):
             explanation_label = MDLabel(
-                text=f"[b]💡 Giải thích:[/b] {answer.get('explanation')}",
+                text=f"[b] Giải thích:[/b] {answer.get('explanation')}",
                 markup=True,
                 font_style='Caption',
                 size_hint_y=None,
@@ -306,11 +260,9 @@ class ExamDetailScreen(MDScreen):
             from kivy.storage.jsonstore import JsonStore
             store = JsonStore('user.json')
 
-            # common locations
             for key in ('auth', 'token', 'user'):
                 if store.exists(key):
                     d = store.get(key)
-                    # d có thể là dict hoặc chứa token trực tiếp
                     token = d.get('token') or d.get('access_token') or d.get('auth') if isinstance(d, dict) else d
                     if token:
                         return token
