@@ -37,7 +37,7 @@ Builder.load_string("""
 
         MDBoxLayout:
             orientation: 'vertical'
-            spacing: dp(15)
+            spacing: dp(10)
             id: result_layout
 """)
 

@@ -20,7 +20,6 @@ KV = """
         padding: dp(20)
         spacing: dp(15)
 
-        # Header
         MDBoxLayout:
             size_hint_y: None
             height: dp(60)
@@ -41,7 +40,6 @@ KV = """
                 size_hint_x: None
                 width: dp(50)
 
-        # Summary Card
         MDCard:
             id: summary_card
             orientation: 'vertical'
@@ -90,7 +88,6 @@ KV = """
                 size_hint_y: None
                 height: dp(20)
 
-        # Detail list
         ScrollView:
 
             MDBoxLayout:
@@ -181,8 +178,8 @@ class ExamDetailScreen(MDScreen):
 
         card = MDCard(
             orientation='vertical',
-            padding=dp(12),
-            spacing=dp(8),
+            padding=dp(15),
+            spacing=dp(10),
             size_hint_y=None,
             elevation=3,
             radius=[12, 12, 12, 12],
@@ -192,9 +189,9 @@ class ExamDetailScreen(MDScreen):
         header = MDLabel(
             text=f"[b]Câu {question_number}:[/b]",
             markup=True,
-            font_style='H6',
+            font_style='Subtitle1',
             size_hint_y=None,
-            height=dp(28)
+            height=dp(25)
         )
         card.add_widget(header)
 
@@ -206,24 +203,43 @@ class ExamDetailScreen(MDScreen):
         )
         card.add_widget(question_text)
 
+        ans_a = answer.get('ans_a')
+        ans_b = answer.get('ans_b')
+        ans_c = answer.get('ans_c')
+        ans_d = answer.get('ans_d')
+
+        answer_text = MDLabel(
+            text=f"[b]A.[/b] {ans_a}\n"
+                 f"[b]B.[/b] {ans_b}\n"
+                 f"[b]C.[/b] {ans_c}\n"
+                 f"[b]D.[/b] {ans_d}",
+            markup=True,
+            font_style='Body2',
+            size_hint_y=None,
+            adaptive_height=True
+        )
+        card.add_widget(answer_text)
+
+        # Câu trả lời của người dùng
         user_answer_label = MDLabel(
             text=f"[b]Câu trả lời của bạn:[/b] {answer.get('answer', 'Chưa trả lời')}",
             markup=True,
             font_style='Body2',
             size_hint_y=None,
-            height=dp(26),
+            height=dp(28),
             theme_text_color='Custom',
             text_color=border_color
         )
         card.add_widget(user_answer_label)
 
+        # Đáp án đúng nếu trả lời sai
         if not is_correct:
             correct_answer_label = MDLabel(
                 text=f"[b]Đáp án đúng:[/b] {answer.get('correct_ans', '')}",
                 markup=True,
                 font_style='Body2',
                 size_hint_y=None,
-                height=dp(26),
+                height=dp(28),
                 theme_text_color='Custom',
                 text_color=[0.2, 0.8, 0.2, 1]
             )
@@ -231,7 +247,7 @@ class ExamDetailScreen(MDScreen):
 
         if answer.get('explanation'):
             explanation_label = MDLabel(
-                text=f"[b] Giải thích:[/b] {answer.get('explanation')}",
+                text=f"[b]Giải thích:[/b] {answer.get('explanation')}",
                 markup=True,
                 font_style='Caption',
                 size_hint_y=None,
@@ -239,17 +255,24 @@ class ExamDetailScreen(MDScreen):
             )
             card.add_widget(explanation_label)
 
-        # compute height (rough)
-        h = dp(40) + dp(30)
+        base_height = dp(60)
+        question_len = len(answer.get('ques_text', ''))
+        question_height = max(dp(30), question_len * 0.35)
+
+        answers_height = dp(100)
+
         if not is_correct:
-            h += dp(28)
+            answers_height += dp(30)
+
         if answer.get('explanation'):
-            h += dp(50)
-        card.height = h + dp(20)
+            exp_len = len(answer.get('explanation', ''))
+            answers_height += max(dp(40), exp_len * 0.3)
+
+        card.height = base_height + question_height + answers_height
+
         return card
 
     def go_back(self):
-        """Quay lại màn hình kết quả hoặc lịch sử"""
         if getattr(self, 'from_screen', '') == 'exam_history':
             self.manager.current = 'exam_history'
         else:

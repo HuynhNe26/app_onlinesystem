@@ -9,6 +9,7 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from kivy.lang import Builder
 from kivy.metrics import dp
 from kivy.clock import Clock
+import threading
 
 API_URL = "https://backend-onlinesystem.onrender.com/api/exam"
 
@@ -65,7 +66,6 @@ class ExamHistoryScreen(MDScreen):
         self.load_history()
 
     def load_history(self):
-        """Tải lịch sử bài thi từ API"""
         def _load():
             try:
                 token = self.get_token()
@@ -99,7 +99,6 @@ class ExamHistoryScreen(MDScreen):
                 logging.error(f"Error loading history: {e}")
                 Clock.schedule_once(lambda dt: self.show_error_dialog("Lỗi", str(e)))
 
-        import threading
         threading.Thread(target=_load, daemon=True).start()
 
     def display_history(self, history):
@@ -168,8 +167,8 @@ class ExamHistoryScreen(MDScreen):
         )
         card.add_widget(score_label)
 
-        total_correct = item.get('total_correct', 0)
-        total_q = item.get('total_questions') or item.get('total_ques') or 0
+        total_correct = item.get('total_correct')
+        total_q = item.get('total_ques')
         correct_label = MDLabel(
             text=f"Số câu đúng: {total_correct}/{total_q}",
             font_style='Subtitle1',
@@ -213,7 +212,6 @@ class ExamHistoryScreen(MDScreen):
         return card
 
     def view_detail(self, result_id):
-        """Mở màn hình chi tiết"""
         try:
             detail_screen = self.manager.get_screen('exam_detail')
             detail_screen.load_result_detail(result_id, from_screen='exam_history')
