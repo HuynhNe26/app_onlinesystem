@@ -9,11 +9,8 @@ from src.screens.intro.intro import IntroScreen
 from src.screens.intro.intro_info import IntroInfoScreen
 from src.screens.account.login import LoginScreen
 from src.screens.account.register import RegisterScreen
-from src.screens.account.profile import ProfileScreen
 from src.screens.home import HomeScreen
-from src.screens.package.package import PackageScreen
 
-from src.screens.package.payment import PaymentScreen
 from src.screens.error_404 import Error404Screen
 from src.screens.exam.exam_setup import ExamSetupScreen
 from src.screens.exam.exam_question import ExamQuestionScreen
@@ -52,17 +49,13 @@ class EducationPlus(MDApp):
                 (LoginScreen, 'login'),
                 (RegisterScreen, 'register'),
                 (HomeScreen, 'home'),
-                (ProfileScreen, 'profile'),
                 (ExamSetupScreen, 'exam_setup'),
                 (ExamQuestionScreen, 'exam_question'),
                 (ExamResultScreen, 'exam_result'),
                 (ExamHistoryScreen, 'exam_history'),
                 (ExamDetailScreen, 'exam_detail'),
-                (PackageScreen, 'package'),
-                (PaymentScreen, 'payment'),
                 (Error404Screen, 'error_404'),
-                (PersonalInfoScreen, 'personal_info')
-                (PaymentSuccessScreen, 'payment_success'),
+                (PersonalInfoScreen, 'personal_info'),
                 (Error404Screen, 'error_404')
             ]
 

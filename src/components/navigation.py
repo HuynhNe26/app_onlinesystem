@@ -29,11 +29,8 @@ NAV_KV = '''
             icon: "account"
             text: "Thông tin cá nhân"
             on_release: 
-<<<<<<< HEAD
                 root.navigate("personal_info")
-=======
-                root.navigate("profile")
->>>>>>> 411b8e7777a5941776b04fa7d106607166c2259d
+
 
         DrawerClickableItem:
             icon: "history"
